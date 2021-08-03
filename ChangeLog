@@ -1,0 +1,7 @@
+2021-08-02  Danilo Chang
+
+	* Implement ::stbimage::write command
+	* Implement ::stbimage::resize command
+	* Implement ::stbimage::load command
+	* Update package name to stbimage
+
