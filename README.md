@@ -14,6 +14,10 @@ Implement commands
 ::stbimage::load filename   
 ::stbimage::resize inputdata srcwidth srcheight dstwitdh dstheight num_channels  
 ::stbimage::write format filename width height channels data  
+::stbimage::rgb2rgba inputdata width height  
+
+`::stbimage::rgb2rgba` is a help command, try to convert RGB image to RGBA
+image.
 
 `format` value should be -
 jpg, png, tga, bmp

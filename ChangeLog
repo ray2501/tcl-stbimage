@@ -1,3 +1,7 @@
+2021-08-04  Danilo Chang
+
+	* Implement ::stbimage::rgb2rgba command
+
 2021-08-02  Danilo Chang
 
 	* Implement ::stbimage::write command
