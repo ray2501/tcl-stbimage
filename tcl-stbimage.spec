@@ -5,7 +5,7 @@
 
 Name:          tcl-stbimage
 Summary:       Tcl extension for stb_image
-Version:       0.1
+Version:       0.2
 Release:       0
 License:       MIT
 Group:         Development/Libraries/Tcl

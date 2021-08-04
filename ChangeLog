@@ -1,5 +1,6 @@
 2021-08-04  Danilo Chang
 
+	* Bump version to v0.2
 	* Implement ::stbimage::rgb2rgba command
 
 2021-08-02  Danilo Chang
