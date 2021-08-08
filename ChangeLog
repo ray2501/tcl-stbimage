@@ -1,5 +1,6 @@
 2021-08-08  Danilo Chang
 
+	* Bump version to v0.3
 	* Implement ::stbimage::load_from_memory command
 
 2021-08-04  Danilo Chang
