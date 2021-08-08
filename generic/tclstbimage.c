@@ -72,6 +72,48 @@ static int tcl_stb_load(void *cd, Tcl_Interp *interp, int objc,Tcl_Obj *const*ob
 }
 
 
+static int tcl_stb_load_from_memory(void *cd, Tcl_Interp *interp, int objc,Tcl_Obj *const*objv){
+    unsigned char *filedata = NULL;
+    int len;
+    int w = 0, h = 0, channels_in_file = 0;
+    unsigned char *data = NULL;
+    int length = 0;
+    Tcl_Obj *result;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "filedata");
+        return TCL_ERROR;
+    }
+
+    filedata = Tcl_GetByteArrayFromObj(objv[1], &len);
+    if (!filedata || len < 1) {
+        return TCL_ERROR;
+    }
+
+    data = stbi_load_from_memory(filedata, len, &w, &h, &channels_in_file, 0);
+    if(!data) {
+        if( interp ) {
+            Tcl_Obj *resultObj = Tcl_GetObjResult( interp );
+            Tcl_AppendStringsToObj( resultObj, "Load file failed",
+                                    (char *)NULL );
+        }
+
+        return TCL_ERROR;
+    }
+
+    length = w * h * channels_in_file;
+    result = Tcl_NewDictObj();
+    Tcl_DictObjPut(interp, result, Tcl_NewStringObj( "width", -1 ), Tcl_NewIntObj( w ));
+    Tcl_DictObjPut(interp, result, Tcl_NewStringObj( "height", -1 ), Tcl_NewIntObj( h ));
+    Tcl_DictObjPut(interp, result, Tcl_NewStringObj( "channel", -1 ), Tcl_NewIntObj( channels_in_file ));
+    Tcl_DictObjPut(interp, result, Tcl_NewStringObj( "data", -1 ), Tcl_NewByteArrayObj( data, length));
+
+    Tcl_SetObjResult(interp, result);
+    stbi_image_free(data);
+    return TCL_OK;
+}
+
+
 static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc,Tcl_Obj *const*objv){
     int in_w = 0, in_h = 0, out_w = 0, out_h = 0, num_channels = 0;
     unsigned char *input_pixels = NULL, *output_pixels = NULL;
@@ -295,6 +337,10 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, NS "::load",
         (Tcl_ObjCmdProc *) tcl_stb_load,
+        (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+
+    Tcl_CreateObjCommand(interp, NS "::load_from_memory",
+        (Tcl_ObjCmdProc *) tcl_stb_load_from_memory,
         (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
 
     Tcl_CreateObjCommand(interp, NS "::resize",
