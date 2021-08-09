@@ -54,14 +54,14 @@ Example
 	set d [::stbimage::load test.jpg]
 	set width [dict get $d width]
 	set height [dict get $d height]
-	set channel [dict get $d channel]
+	set channels [dict get $d channels]
 	set data [dict get $d data]
 	set neww [expr [dict get $d width] * 2]
 	set newh [expr [dict get $d height] * 2]
-	set d2 [::stbimage::resize $data $width $height $neww $newh $channel]
+	set d2 [::stbimage::resize $data $width $height $neww $newh $channels]
 	set newdata [dict get $d2 data]
-	::stbimage::write jpg test2.jpg $neww $newh $channel $newdata
-	::stbimage::write png test2.png $neww $newh $channel $newdata
-	::stbimage::write tga test2.tga $neww $newh $channel $newdata
-	::stbimage::write bmp test2.bmp $neww $newh $channel $newdata
+	::stbimage::write jpg test2.jpg $neww $newh $channels $newdata
+	::stbimage::write png test2.png $neww $newh $channels $newdata
+	::stbimage::write tga test2.tga $neww $newh $channels $newdata
+	::stbimage::write bmp test2.bmp $neww $newh $channels $newdata
 
