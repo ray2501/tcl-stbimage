@@ -199,7 +199,7 @@ static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * cons
 
 static int tcl_stb_rgb2rgba(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
     int len = 0, length = 0, x = 0, y = 0, width = 0, height = 0;
-    unsigned char *input_pixels = NULL, *output_pixels = NULL;
+    unsigned char *input_pixels = NULL, *output_pixels = NULL, *in_ptr, *out_ptr;
     Tcl_Obj *result;
 
     if (objc != 4) {
@@ -233,14 +233,14 @@ static int tcl_stb_rgb2rgba(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * co
         return TCL_ERROR;
     }
 
+    out_ptr = output_pixels;
+    in_ptr = input_pixels;
     for (y = 0; y < height; y++) {
-        for (x = 0; x < width * 3; x += 3) {
-            int location = y * width * 3 + x;
-
-            *(output_pixels + location) = *(input_pixels + location);
-            *(output_pixels + location + 1) = *(input_pixels + location + 1);
-            *(output_pixels + location + 2) = *(input_pixels + location + 2);
-            *(output_pixels + location + 3) = 255;
+        for (x = 0; x < width; x++) {
+            *out_ptr++ = *in_ptr++;
+            *out_ptr++ = *in_ptr++;
+            *out_ptr++ = *in_ptr++;
+            *out_ptr++ = 255;
         }
     }
 
