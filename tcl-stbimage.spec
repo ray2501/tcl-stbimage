@@ -10,7 +10,7 @@ Release:       0
 License:       MIT
 Group:         Development/Libraries/Tcl
 Source:        %{name}-%{version}.tar.gz
-URL:           https://sites.google.com/site/ray2501/tcl-stbimage
+URL:           https://github.com/ray2501/tcl-stbimage
 BuildRequires: autoconf
 BuildRequires: make
 BuildRequires: tcl-devel >= 8.6
