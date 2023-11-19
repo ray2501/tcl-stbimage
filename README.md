@@ -16,6 +16,7 @@ Implement commands
 ::stbimage::resize inputdata srcwidth srcheight dstwitdh dstheight num_channels  
 ::stbimage::write format filename width height channels data  
 ::stbimage::rgb2rgba data width height  
+::stbimage::ascii_art inputdata srcwidth srcheight dstwitdh dstheight channels ?indentstring?  
 
 `::stbimage::rgb2rgba` is a help command, try to convert RGB image to RGBA
 image.

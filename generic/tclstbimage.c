@@ -321,6 +321,139 @@ static int tcl_stb_write(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const
     return TCL_OK;
 }
 
+
+static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    int in_w = 0, in_h = 0, out_w = 0, out_h = 0, num_channels = 0;
+    int x, y, pixval, reverse = 0;
+    unsigned char *input_pixels = NULL, *output_pixels = NULL;
+    int len = 0;
+    int res = 0;
+    int length = 0, indent_length = 0;
+    const char *indent_string = NULL;
+    Tcl_DString ds;
+
+    if (objc < 7 || objc > 8) {
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdata srcwidth srcheight dstwitdh dstheight num_channels ?indent_string?");
+        return TCL_ERROR;
+    }
+
+    input_pixels = Tcl_GetByteArrayFromObj(objv[1], &len);
+    if (input_pixels == NULL || len < 1) {
+        Tcl_SetResult(interp, "invalid byte array", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &in_w) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[3], &in_h) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[4], &out_w) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[5], &out_h) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[6], &num_channels) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    if (num_channels < 0) {
+        num_channels = -num_channels;
+        reverse = 1;
+    }
+
+    if (objc > 7) {
+        indent_string = Tcl_GetStringFromObj(objv[7], &indent_length);
+    }
+
+    length = out_w * out_h * num_channels;
+    output_pixels = (unsigned char *) attemptckalloc(length);
+    if (output_pixels == NULL) {
+        Tcl_SetResult(interp, "out of memory", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    res = stbir_resize_uint8(input_pixels , in_w , in_h , 0,
+                       output_pixels, out_w, out_h, 0,
+                       num_channels);
+
+    if (res == 0) {
+        ckfree(output_pixels);
+        Tcl_SetResult(interp, "resize failed", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    Tcl_DStringInit(&ds);
+    for (y = 0; y < out_h; y++) {
+        if (indent_string != NULL) {
+            Tcl_DStringAppend(&ds, indent_string, indent_length);
+        }
+        for (x = 0; x < out_w; x++) {
+            char ch;
+
+            if (num_channels == 1) {
+                pixval = output_pixels[y * out_w + x];
+            } else if (num_channels == 2) {
+                pixval = output_pixels[(y * out_w + x) * 2];
+            } else if (num_channels == 3) {
+                pixval  = 19518 * output_pixels[(y * out_w + x) * 3 + 0];
+                pixval += 38319 * output_pixels[(y * out_w + x) * 3 + 1];
+                pixval +=  7442 * output_pixels[(y * out_w + x) * 3 + 2];
+                pixval = pixval >> 16;
+                if (pixval > 255) {
+                    pixval = 255;
+                }
+            } else if (num_channels == 4) {
+                pixval  = 19518 * output_pixels[(y * out_w + x) * 4 + 0];
+                pixval += 38319 * output_pixels[(y * out_w + x) * 4 + 1];
+                pixval +=  7442 * output_pixels[(y * out_w + x) * 4 + 2];
+                pixval = pixval >> 16;
+                if (pixval > 255) {
+                    pixval = 255;
+                }
+            } else {
+                pixval = 0;
+            }
+            if (reverse) {
+                pixval = 255 - pixval;
+            }
+            if (pixval < 25) {
+                ch = ' ';
+            } else if (pixval < 50) {
+                ch = '.';
+            } else if (pixval < 75) {
+                ch = '.';
+            } else if (pixval < 100) {
+                ch = ':';
+            } else if (pixval < 125) {
+                ch = '-';
+            } else if (pixval < 150) {
+                ch = '=';
+            } else if (pixval < 175) {
+                ch = '+';
+            } else if (pixval < 200) {
+                ch = '*';
+            } else if (pixval < 225) {
+                ch = '%';
+            } else {
+                ch = '@';
+            }
+            Tcl_DStringAppend(&ds, &ch, 1);
+        }
+        Tcl_DStringAppend(&ds, "\n", 1);
+    }
+    Tcl_DStringResult(interp, &ds);
+    ckfree(output_pixels);
+
+    return TCL_OK;
+}
+
+
 
 /*
  *----------------------------------------------------------------------
@@ -377,6 +510,10 @@ Stbimage_Init(Tcl_Interp *interp)
     Tcl_CreateObjCommand(interp, "::" NS "::write",
         (Tcl_ObjCmdProc *) tcl_stb_write,
         (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+
+    Tcl_CreateObjCommand(interp, "::" NS "::ascii_art",
+        (Tcl_ObjCmdProc *) ascii_art,
+        (ClientData)NULL, (Tcl_CmdDeleteProc *) NULL);
 
     return TCL_OK;
 }
