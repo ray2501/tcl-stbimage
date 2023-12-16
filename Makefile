@@ -146,7 +146,7 @@ TCLSH		= $(TCLSH_ENV) $(PKG_ENV) $(TCLSH_PROG)
 
 SHARED_BUILD	= 1
 
-INCLUDES	=  -I"/usr/include"
+INCLUDES	=  -I"/usr/include" -I.
 #INCLUDES	=  -I"/usr/include" @TK_INCLUDES@ @TK_XINCLUDES@
 
 PKG_CFLAGS	=  
@@ -156,8 +156,8 @@ PKG_CFLAGS	=
 # that your library may use.  TCL_DEFS can actually be a problem if
 # you do not compile with a similar machine setup as the Tcl core was
 # compiled with.
-#DEFS		= $(TCL_DEFS) -DPACKAGE_NAME=\"stbimage\" -DPACKAGE_TARNAME=\"stbimage\" -DPACKAGE_VERSION=\"0.6\" -DPACKAGE_STRING=\"stbimage\ 0.6\" -DPACKAGE_BUGREPORT=\"\" -DPACKAGE_URL=\"\" -DBUILD_stbimage=/\*\*/ -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DUSE_THREAD_ALLOC=1 -D_REENTRANT=1 -D_THREAD_SAFE=1 -DTCL_THREADS=1 -DUSE_TCL_STUBS=1 -DUSE_TCLOO_STUBS=1 -DMODULE_SCOPE=extern\ __attribute__\(\(__visibility__\(\"hidden\"\)\)\) -DHAVE_HIDDEN=1 -DHAVE_CAST_TO_UNION=1 -DHAVE_STDBOOL_H=1 -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_IS_LONG=1 -DTCL_CFG_OPTIMIZED=1 $(PKG_CFLAGS)
-DEFS		= -DPACKAGE_NAME=\"stbimage\" -DPACKAGE_TARNAME=\"stbimage\" -DPACKAGE_VERSION=\"0.6\" -DPACKAGE_STRING=\"stbimage\ 0.6\" -DPACKAGE_BUGREPORT=\"\" -DPACKAGE_URL=\"\" -DBUILD_stbimage=/\*\*/ -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DUSE_THREAD_ALLOC=1 -D_REENTRANT=1 -D_THREAD_SAFE=1 -DTCL_THREADS=1 -DUSE_TCL_STUBS=1 -DUSE_TCLOO_STUBS=1 -DMODULE_SCOPE=extern\ __attribute__\(\(__visibility__\(\"hidden\"\)\)\) -DHAVE_HIDDEN=1 -DHAVE_CAST_TO_UNION=1 -DHAVE_STDBOOL_H=1 -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_IS_LONG=1 -DTCL_CFG_OPTIMIZED=1 $(PKG_CFLAGS)
+#DEFS		= $(TCL_DEFS) -DPACKAGE_NAME=\"stbimage\" -DPACKAGE_TARNAME=\"stbimage\" -DPACKAGE_VERSION=\"0.6\" -DPACKAGE_STRING=\"stbimage\ 0.6\" -DPACKAGE_BUGREPORT=\"\" -DPACKAGE_URL=\"\" -DBUILD_stbimage=/\*\*/ -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DTcl_Size=int -DUSE_THREAD_ALLOC=1 -D_REENTRANT=1 -D_THREAD_SAFE=1 -DTCL_THREADS=1 -DUSE_TCL_STUBS=1 -DUSE_TCLOO_STUBS=1 -DMODULE_SCOPE=extern\ __attribute__\(\(__visibility__\(\"hidden\"\)\)\) -DHAVE_HIDDEN=1 -DHAVE_CAST_TO_UNION=1 -DHAVE_STDBOOL_H=1 -DTCL_WIDE_INT_IS_LONG=1 -DTCL_CFG_OPTIMIZED=1 -DTCL_MAJOR_VERSION=8 $(PKG_CFLAGS)
+DEFS		= -DPACKAGE_NAME=\"stbimage\" -DPACKAGE_TARNAME=\"stbimage\" -DPACKAGE_VERSION=\"0.6\" -DPACKAGE_STRING=\"stbimage\ 0.6\" -DPACKAGE_BUGREPORT=\"\" -DPACKAGE_URL=\"\" -DBUILD_stbimage=/\*\*/ -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DTcl_Size=int -DUSE_THREAD_ALLOC=1 -D_REENTRANT=1 -D_THREAD_SAFE=1 -DTCL_THREADS=1 -DUSE_TCL_STUBS=1 -DUSE_TCLOO_STUBS=1 -DMODULE_SCOPE=extern\ __attribute__\(\(__visibility__\(\"hidden\"\)\)\) -DHAVE_HIDDEN=1 -DHAVE_CAST_TO_UNION=1 -DHAVE_STDBOOL_H=1 -DTCL_WIDE_INT_IS_LONG=1 -DTCL_CFG_OPTIMIZED=1 -DTCL_MAJOR_VERSION=8 $(PKG_CFLAGS)
 
 # Move pkgIndex.tcl to 'BINARIES' var if it is generated in the Makefile
 CONFIG_CLEAN_FILES = Makefile pkgIndex.tcl
@@ -204,6 +204,12 @@ binaries: $(BINARIES)
 
 libraries:
 
+#========================================================================
+# Your doc target should differentiate from doc builds (by the developer)
+# and doc installs (see install-doc), which just install the docs on the
+# end user machine when building from source.
+#========================================================================
+
 install: all install-binaries install-libraries
 
 install-binaries: binaries install-lib-binaries install-bin-binaries
@@ -220,6 +226,11 @@ install-libraries: libraries
 	    echo "Installing $(srcdir)/$$i" ; \
 	    $(INSTALL_DATA) $(srcdir)/$$i "$(DESTDIR)$(includedir)" ; \
 	done;
+
+#========================================================================
+# Install documentation.  Unix manpages should go in the $(mandir)
+# directory.
+#========================================================================
 
 test: binaries libraries
 	$(TCLSH) `echo $(srcdir)/tests/all.tcl` $(TESTFLAGS) \
@@ -304,7 +315,7 @@ DIST_INSTALL_SCRIPT	= CPPROG='cp -p' $(INSTALL) -m 755
 dist-clean:
 	rm -rf $(DIST_DIR) $(DIST_ROOT)/$(PKG_DIR).tar.*
 
-dist: dist-clean
+dist: dist-clean $(srcdir)/manifest.uuid
 	$(INSTALL_DATA_DIR) $(DIST_DIR)
 
 	# TEA files
@@ -315,6 +326,7 @@ dist: dist-clean
 
 	$(INSTALL_DATA_DIR) $(DIST_DIR)/tclconfig
 	$(DIST_INSTALL_DATA) $(srcdir)/tclconfig/README.txt \
+	    $(srcdir)/manifest.uuid \
 	    $(srcdir)/tclconfig/tcl.m4 $(srcdir)/tclconfig/install-sh \
 	    $(DIST_DIR)/tclconfig/
 
@@ -327,7 +339,7 @@ dist: dist-clean
 	    $(srcdir)/pkgIndex.tcl.in \
 	    $(DIST_DIR)/
 
-	list='demos generic library mac tests unix win'; \
+	list='demos doc generic library macosx tests unix win'; \
 	for p in $$list; do \
 	    if test -d $(srcdir)/$$p ; then \
 		$(INSTALL_DATA_DIR) $(DIST_DIR)/$$p; \
@@ -429,7 +441,7 @@ uninstall-binaries:
 	  rm -f "$(DESTDIR)$(bindir)/$$p"; \
 	done
 
-.PHONY: all binaries clean depend distclean install libraries test
+.PHONY: all binaries clean depend distclean doc install libraries test
 .PHONY: gdb gdb-test valgrind valgrindshell
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

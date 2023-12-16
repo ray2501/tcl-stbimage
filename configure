@@ -650,6 +650,7 @@ TCLSH_PROG
 VC_MANIFEST_EMBED_EXE
 VC_MANIFEST_EMBED_DLL
 RANLIB_STUB
+PKG_STUB_LIB_FILE
 MAKE_STUB_LIB
 MAKE_STATIC_LIB
 MAKE_SHARED_LIB
@@ -715,7 +716,6 @@ PKG_HEADERS
 PKG_TCL_SOURCES
 PKG_STUB_OBJECTS
 PKG_STUB_SOURCES
-PKG_STUB_LIB_FILE
 PKG_LIB_FILE9
 PKG_LIB_FILE8
 PKG_LIB_FILE
@@ -764,6 +764,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 with_tcl
+with_tcl8
 with_tclinclude
 enable_threads
 enable_shared
@@ -1414,6 +1415,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-tcl              directory containing tcl configuration
                           (tclConfig.sh)
+  --with-tcl8             Compile for Tcl8 in Tcl9 environment
   --with-tclinclude       directory containing the public Tcl header files
 
 Some influential environment variables:
@@ -2561,8 +2563,6 @@ printf "%s\n" "$as_me: configuring ${PACKAGE_NAME} ${PACKAGE_VERSION}" >&6;}
 
 
 
-    # Substitute STUB_LIB_FILE in case package creates a stub library too.
-
 
     # We AC_SUBST these here to ensure they are subst'ed,
     # in case the user doesn't call TEA_ADD_...
@@ -2650,6 +2650,13 @@ printf "%s\n" "$tcl_cv_sys_version" >&6; }
 if test ${with_tcl+y}
 then :
   withval=$with_tcl; with_tclconfig="${withval}"
+fi
+
+
+# Check whether --with-tcl8 was given.
+if test ${with_tcl8+y}
+then :
+  withval=$with_tcl8; with_tcl8="${withval}"
 fi
 
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for Tcl configuration" >&5
@@ -5082,6 +5089,12 @@ printf "%s\n" "$tcl_cv_cc_pipe" >&6; }
 	fi
     fi
 
+    if test "${TCL_MAJOR_VERSION}" -lt 9 -a "${TCL_MINOR_VERSION}" -lt 7; then
+
+printf "%s\n" "#define Tcl_Size int" >>confdefs.h
+
+	fi
+
     #--------------------------------------------------------------------
     # Common compiler flag setup
     #--------------------------------------------------------------------
@@ -5310,9 +5323,7 @@ printf "%s\n" "$ac_cv_c_bigendian" >&6; }
    no)
       ;; #(
    universal)
-
-printf "%s\n" "#define AC_APPLE_UNIVERSAL_BUILD 1" >>confdefs.h
-
+     #
      ;; #(
    *)
      as_fn_error $? "unknown endianness
@@ -6351,6 +6362,9 @@ fi
 		    amd64|x64|yes)
 			MACHINE="AMD64" ; # default to AMD64 64-bit build
 			;;
+		    arm64|aarch64)
+			MACHINE="ARM64"
+			;;
 		    ia64)
 			MACHINE="IA64"
 			;;
@@ -6562,6 +6576,13 @@ printf "%s\n" "$ac_cv_cross" >&6; }
 				AR="x86_64-w64-mingw32-ar"
 				RANLIB="x86_64-w64-mingw32-ranlib"
 				RC="x86_64-w64-mingw32-windres"
+			    ;;
+			    arm64|aarch64)
+				CC="aarch64-w64-mingw32-clang"
+				LD="aarch64-w64-mingw32-ld"
+				AR="aarch64-w64-mingw32-ar"
+				RANLIB="aarch64-w64-mingw32-ranlib"
+				RC="aarch64-w64-mingw32-windres"
 			    ;;
 			    *)
 				CC="i686-w64-mingw32-${CC}"
@@ -8148,8 +8169,9 @@ printf "%s\n" "#define _ISOC99_SOURCE 1" >>confdefs.h
 	tcl_flags="$tcl_flags _ISOC99_SOURCE"
     fi
 
+    if test "${TCL_MAJOR_VERSION}" -ne 8 ; then
 
-    if test ${tcl_cv_flag__largefile64_source+y}
+    if test ${tcl_cv_flag__file_offset_bits+y}
 then :
   printf %s "(cached) " >&6
 else $as_nop
@@ -8159,95 +8181,46 @@ else $as_nop
 int
 main (void)
 {
-struct stat64 buf; int i = stat64("/", &buf);
+switch (0) { case 0: case (sizeof(off_t)==sizeof(long long)): ; }
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"
 then :
-  tcl_cv_flag__largefile64_source=no
+  tcl_cv_flag__file_offset_bits=no
 else $as_nop
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#define _LARGEFILE64_SOURCE 1
+#define _FILE_OFFSET_BITS 64
 #include <sys/stat.h>
 int
 main (void)
 {
-struct stat64 buf; int i = stat64("/", &buf);
+switch (0) { case 0: case (sizeof(off_t)==sizeof(long long)): ; }
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"
 then :
-  tcl_cv_flag__largefile64_source=yes
+  tcl_cv_flag__file_offset_bits=yes
 else $as_nop
-  tcl_cv_flag__largefile64_source=no
+  tcl_cv_flag__file_offset_bits=no
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 fi
 
-    if test "x${tcl_cv_flag__largefile64_source}" = "xyes" ; then
+    if test "x${tcl_cv_flag__file_offset_bits}" = "xyes" ; then
 
-printf "%s\n" "#define _LARGEFILE64_SOURCE 1" >>confdefs.h
+printf "%s\n" "#define _FILE_OFFSET_BITS 64" >>confdefs.h
 
-	tcl_flags="$tcl_flags _LARGEFILE64_SOURCE"
+	tcl_flags="$tcl_flags _FILE_OFFSET_BITS"
     fi
 
-
-    if test ${tcl_cv_flag__largefile_source64+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <sys/stat.h>
-int
-main (void)
-{
-char *p = (char *)open64;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  tcl_cv_flag__largefile_source64=no
-else $as_nop
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#define _LARGEFILE_SOURCE64 1
-#include <sys/stat.h>
-int
-main (void)
-{
-char *p = (char *)open64;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  tcl_cv_flag__largefile_source64=yes
-else $as_nop
-  tcl_cv_flag__largefile_source64=no
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-fi
-
-    if test "x${tcl_cv_flag__largefile_source64}" = "xyes" ; then
-
-printf "%s\n" "#define _LARGEFILE_SOURCE64 1" >>confdefs.h
-
-	tcl_flags="$tcl_flags _LARGEFILE_SOURCE64"
     fi
-
     if test "x${tcl_flags}" = "x" ; then
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: none" >&5
 printf "%s\n" "none" >&6; }
@@ -8327,6 +8300,75 @@ printf "%s\n" "#define TCL_WIDE_INT_TYPE ${tcl_cv_type_64bit}" >>confdefs.h
 printf "%s\n" "${tcl_cv_type_64bit}" >&6; }
 
 	# Now check for auxiliary declarations
+    if test "${TCL_MAJOR_VERSION}" -ne 8 ; then
+	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for 64-bit time_t" >&5
+printf %s "checking for 64-bit time_t... " >&6; }
+if test ${tcl_cv_time_t_64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+		cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <sys/types.h>
+int
+main (void)
+{
+switch (0) {case 0: case (sizeof(time_t)==sizeof(long long)): ;}
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  tcl_cv_time_t_64=yes
+else $as_nop
+  tcl_cv_time_t_64=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcl_cv_time_t_64" >&5
+printf "%s\n" "$tcl_cv_time_t_64" >&6; }
+	    if test "x${tcl_cv_time_t_64}" = "xno" ; then
+		# Note that _TIME_BITS=64 requires _FILE_OFFSET_BITS=64
+		# which SC_TCL_EARLY_FLAGS has defined if necessary.
+		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if _TIME_BITS=64 enables 64-bit time_t" >&5
+printf %s "checking if _TIME_BITS=64 enables 64-bit time_t... " >&6; }
+if test ${tcl_cv__time_bits+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+
+		    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#define _TIME_BITS 64
+#include <sys/types.h>
+int
+main (void)
+{
+switch (0) {case 0: case (sizeof(time_t)==sizeof(long long)): ;}
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  tcl_cv__time_bits=yes
+else $as_nop
+  tcl_cv__time_bits=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tcl_cv__time_bits" >&5
+printf "%s\n" "$tcl_cv__time_bits" >&6; }
+		if test "x${tcl_cv__time_bits}" = "xyes" ; then
+
+printf "%s\n" "#define _TIME_BITS 64" >>confdefs.h
+
+		fi
+	    fi
+	fi
+
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for struct dirent64" >&5
 printf %s "checking for struct dirent64... " >&6; }
 if test ${tcl_cv_struct_dirent64+y}
@@ -8739,10 +8781,13 @@ rm -rf conftest*
 
     PACKAGE_LIB_PREFIX8="${PACKAGE_LIB_PREFIX}"
     PACKAGE_LIB_PREFIX9="${PACKAGE_LIB_PREFIX}tcl9"
-    if test "${TCL_MAJOR_VERSION}" -gt 8 ; then
+    if test "${TCL_MAJOR_VERSION}" -gt 8 -a x"${with_tcl8}" == x; then
 	PACKAGE_LIB_PREFIX="${PACKAGE_LIB_PREFIX9}"
     else
 	PACKAGE_LIB_PREFIX="${PACKAGE_LIB_PREFIX8}"
+
+printf "%s\n" "#define TCL_MAJOR_VERSION 8" >>confdefs.h
+
     fi
     if test "${TEA_PLATFORM}" = "windows" ; then
 	if test "${SHARED_BUILD}" = "1" ; then
@@ -8767,7 +8812,11 @@ rm -rf conftest*
 	    eval eval "PKG_LIB_FILE=${PACKAGE_LIB_PREFIX}${PACKAGE_NAME}${UNSHARED_LIB_SUFFIX}"
 	fi
 	# Some packages build their own stubs libraries
-	eval eval "PKG_STUB_LIB_FILE=${PACKAGE_LIB_PREFIX}${PACKAGE_NAME}stub${UNSHARED_LIB_SUFFIX}"
+	if test "${TCL_MAJOR_VERSION}" -gt 8 -a x"${with_tcl8}" == x; then
+	    eval eval "PKG_STUB_LIB_FILE=${PACKAGE_LIB_PREFIX8}${PACKAGE_NAME}stub.a"
+	else
+	    eval eval "PKG_STUB_LIB_FILE=${PACKAGE_LIB_PREFIX8}${PACKAGE_NAME}stub${UNSHARED_LIB_SUFFIX}"
+	fi
 	if test "$GCC" = "yes"; then
 	    PKG_STUB_LIB_FILE=lib${PKG_STUB_LIB_FILE}
 	fi
@@ -8786,12 +8835,16 @@ rm -rf conftest*
 	    eval eval "PKG_LIB_FILE=lib${PACKAGE_LIB_PREFIX}${PACKAGE_NAME}${SHARED_LIB_SUFFIX}"
 	    RANLIB=:
 	else
-	    eval eval "PKG_LIB_FILE=lib${PACKAGE_LIB_PREFIX8}${PACKAGE_NAME}${UNSHARED_LIB_SUFFIX}"
-	    eval eval "PKG_LIB_FILE=lib${PACKAGE_LIB_PREFIX9}${PACKAGE_NAME}${UNSHARED_LIB_SUFFIX}"
+	    eval eval "PKG_LIB_FILE8=lib${PACKAGE_LIB_PREFIX8}${PACKAGE_NAME}${UNSHARED_LIB_SUFFIX}"
+	    eval eval "PKG_LIB_FILE9=lib${PACKAGE_LIB_PREFIX9}${PACKAGE_NAME}${UNSHARED_LIB_SUFFIX}"
 	    eval eval "PKG_LIB_FILE=lib${PACKAGE_LIB_PREFIX}${PACKAGE_NAME}${UNSHARED_LIB_SUFFIX}"
 	fi
 	# Some packages build their own stubs libraries
-	eval eval "PKG_STUB_LIB_FILE=lib${PACKAGE_LIB_PREFIX8}${PACKAGE_NAME}stub${UNSHARED_LIB_SUFFIX}"
+	if test "${TCL_MAJOR_VERSION}" -gt 8 -a x"${with_tcl8}" == x; then
+	    eval eval "PKG_STUB_LIB_FILE=lib${PACKAGE_LIB_PREFIX8}${PACKAGE_NAME}stub.a"
+	else
+	    eval eval "PKG_STUB_LIB_FILE=lib${PACKAGE_LIB_PREFIX8}${PACKAGE_NAME}stub${UNSHARED_LIB_SUFFIX}"
+	fi
     fi
 
     # These are escaped so that only CFLAGS is picked up at configure time.
@@ -8804,6 +8857,8 @@ rm -rf conftest*
 
 
 
+
+    # Substitute STUB_LIB_FILE in case package creates a stub library too.
 
 
 
@@ -9025,7 +9080,6 @@ done
 LIBOBJS=$ac_libobjs
 
 LTLIBOBJS=$ac_ltlibobjs
-
 
 
 CFLAGS="${CFLAGS} ${CPPFLAGS}"; CPPFLAGS=""

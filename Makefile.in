@@ -146,7 +146,7 @@ TCLSH		= $(TCLSH_ENV) $(PKG_ENV) $(TCLSH_PROG)
 
 SHARED_BUILD	= @SHARED_BUILD@
 
-INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@
+INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@ -I.
 #INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@ @TK_INCLUDES@ @TK_XINCLUDES@
 
 PKG_CFLAGS	= @PKG_CFLAGS@
@@ -204,6 +204,12 @@ binaries: $(BINARIES)
 
 libraries:
 
+#========================================================================
+# Your doc target should differentiate from doc builds (by the developer)
+# and doc installs (see install-doc), which just install the docs on the
+# end user machine when building from source.
+#========================================================================
+
 install: all install-binaries install-libraries
 
 install-binaries: binaries install-lib-binaries install-bin-binaries
@@ -220,6 +226,11 @@ install-libraries: libraries
 	    echo "Installing $(srcdir)/$$i" ; \
 	    $(INSTALL_DATA) $(srcdir)/$$i "$(DESTDIR)$(includedir)" ; \
 	done;
+
+#========================================================================
+# Install documentation.  Unix manpages should go in the $(mandir)
+# directory.
+#========================================================================
 
 test: binaries libraries
 	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS) \
@@ -304,7 +315,7 @@ DIST_INSTALL_SCRIPT	= CPPROG='cp -p' $(INSTALL) -m 755
 dist-clean:
 	rm -rf $(DIST_DIR) $(DIST_ROOT)/$(PKG_DIR).tar.*
 
-dist: dist-clean
+dist: dist-clean $(srcdir)/manifest.uuid
 	$(INSTALL_DATA_DIR) $(DIST_DIR)
 
 	# TEA files
@@ -315,6 +326,7 @@ dist: dist-clean
 
 	$(INSTALL_DATA_DIR) $(DIST_DIR)/tclconfig
 	$(DIST_INSTALL_DATA) $(srcdir)/tclconfig/README.txt \
+	    $(srcdir)/manifest.uuid \
 	    $(srcdir)/tclconfig/tcl.m4 $(srcdir)/tclconfig/install-sh \
 	    $(DIST_DIR)/tclconfig/
 
@@ -327,7 +339,7 @@ dist: dist-clean
 	    $(srcdir)/pkgIndex.tcl.in \
 	    $(DIST_DIR)/
 
-	list='demos generic library mac tests unix win'; \
+	list='demos doc generic library macosx tests unix win'; \
 	for p in $$list; do \
 	    if test -d $(srcdir)/$$p ; then \
 		$(INSTALL_DATA_DIR) $(DIST_DIR)/$$p; \
@@ -429,7 +441,7 @@ uninstall-binaries:
 	  rm -f "$(DESTDIR)$(bindir)/$$p"; \
 	done
 
-.PHONY: all binaries clean depend distclean install libraries test
+.PHONY: all binaries clean depend distclean doc install libraries test
 .PHONY: gdb gdb-test valgrind valgrindshell
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
