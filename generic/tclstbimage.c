@@ -15,7 +15,7 @@ extern "C" {
 #define STBIR_MALLOC(size, c) attemptckalloc(size)
 #define STBIR_FREE(ptr, c) ckfree(ptr)
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image_resize.h"
+#include "stb_image_resize2.h"
 #define STBIW_MALLOC attemptckalloc
 #define STBIW_REALLOC attemptckrealloc
 #define STBIW_FREE ckfree
@@ -132,8 +132,8 @@ static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * cons
     int in_w = 0, in_h = 0, out_w = 0, out_h = 0, num_channels = 0;
     unsigned char *input_pixels = NULL, *output_pixels = NULL;
     int len = 0;
-    int res = 0;
     int length = 0;
+    unsigned char *res = NULL;
     Tcl_Obj *result;
 
     if (objc != 7) {
@@ -174,11 +174,11 @@ static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * cons
         return TCL_ERROR;
     }
 
-    res = stbir_resize_uint8(input_pixels , in_w , in_h , 0,
+    res = stbir_resize_uint8_linear(input_pixels , in_w , in_h , 0,
                        output_pixels, out_w, out_h, 0,
-                       num_channels);
+                       (stbir_pixel_layout) num_channels);
 
-    if (res == 0) {
+    if (res == NULL) {
         ckfree(output_pixels);
         Tcl_SetResult(interp, "resize failed", TCL_STATIC);
         return TCL_ERROR;
@@ -327,8 +327,8 @@ static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *ob
     int x, y, pixval, reverse = 0;
     unsigned char *input_pixels = NULL, *output_pixels = NULL;
     int len = 0;
-    int res = 0;
     int length = 0, indent_length = 0;
+    unsigned char *res = NULL;
     const char *indent_string = NULL;
     Tcl_DString ds;
 
@@ -378,11 +378,11 @@ static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *ob
         return TCL_ERROR;
     }
 
-    res = stbir_resize_uint8(input_pixels , in_w , in_h , 0,
+    res = stbir_resize_uint8_linear(input_pixels , in_w , in_h , 0,
                        output_pixels, out_w, out_h, 0,
-                       num_channels);
+                       (stbir_pixel_layout) num_channels);
 
-    if (res == 0) {
+    if (res == NULL) {
         ckfree(output_pixels);
         Tcl_SetResult(interp, "resize failed", TCL_STATIC);
         return TCL_ERROR;
@@ -454,7 +454,7 @@ static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *ob
 }
 
 
-
+
 /*
  *----------------------------------------------------------------------
  *
