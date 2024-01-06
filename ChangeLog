@@ -1,5 +1,6 @@
 2024-01-06  Danilo Chang
 
+	* Bump version to v0.8
 	* Upgrade to stb_image_resize2.h
 	* Update stb_image.h
 
