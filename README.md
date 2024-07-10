@@ -15,7 +15,10 @@ Implement commands
 ::stbimage::load_from_memory filedata   
 ::stbimage::resize inputdata srcwidth srcheight dstwitdh dstheight num_channels  
 ::stbimage::write format filename width height channels data  
-::stbimage::rgb2rgba data width height  
+::stbimage::rgb2rgba inputdata width height  
+::stbimage::rgb2rgba inputdict  
+::stbimage::rgb2grey inputdata width height  
+::stbimage::rgb2grey inputdict  
 ::stbimage::ascii_art inputdata srcwidth srcheight dstwitdh dstheight channels ?indentstring?  
 ::stbimage::ascii_art inputdict dstwitdh dstheight ?indentstring?  
 ::stbimage::crop inputdata srcwidth srcheight startcolumn startrow dstwitdh dstheight channels  
@@ -29,6 +32,7 @@ Implement commands
 
 `::stbimage::rgb2rgba` is a help command, try to convert RGB image to RGBA
 image.
+`::stbimage::rgb2grey` is a helper command to convert RGB image to greyscale.
 
 `format` value should be -
 jpg, png, tga, bmp

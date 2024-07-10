@@ -268,56 +268,221 @@ static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * cons
 
 
 static int tcl_stb_rgb2rgba(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
-    int len = 0, length = 0, x = 0, y = 0, width = 0, height = 0;
-    unsigned char *input_pixels = NULL, *output_pixels = NULL, *in_ptr, *out_ptr;
+    PkgData *pkg_data = (PkgData *) cd;
+    int length = 0, x = 0, y = 0, grey = 0;
+    unsigned char *output_pixels = NULL, *in_ptr, *out_ptr;
+    ImgInfo in;
     Tcl_Obj *result;
 
+    if (objc == 2) {
+        if (get_img_info(interp, pkg_data, objv[1], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        goto process;
+    }
+
     if (objc != 4) {
-        Tcl_WrongNumArgs(interp, 1, objv, "data width height");
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdict|data ?width height?");
         return TCL_ERROR;
     }
 
-    input_pixels = Tcl_GetByteArrayFromObj(objv[1], &len);
-    if (input_pixels == NULL || len < 1) {
-        Tcl_SetResult(interp, "invalid byte array", TCL_STATIC);
+    in.data = Tcl_GetByteArrayFromObj(objv[1], &in.length);
+    if (in.data == NULL || in.length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[2], &width) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[2], &in.width) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[3], &height) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[3], &in.height) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (len != width * height * 3) {
-        Tcl_SetResult(interp, "invalid byte array length", TCL_STATIC);
+process:
+    if (in.length == in.width * in.height) {
+        grey = 1;
+    } else if (in.length == in.width * in.height * 2) {
+        grey = 2;
+    } else if (in.length == in.width * in.height * 4) {
+        /* identity */
+    } else if (in.length != in.width * in.height * 3) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    length = width * height * 4 * sizeof(unsigned char);
-    output_pixels = (unsigned char *) attemptckalloc(length);
+    length = in.width * in.height * 4;
+    if (length == in.length) {
+        output_pixels = in.data;
+    } else {
+        output_pixels = (unsigned char *) attemptckalloc(length);
+    }
     if (output_pixels == NULL) {
         Tcl_SetResult(interp, "out of memory", TCL_STATIC);
         return TCL_ERROR;
     }
 
     out_ptr = output_pixels;
-    in_ptr = input_pixels;
-    for (y = 0; y < height; y++) {
-        for (x = 0; x < width; x++) {
-            *out_ptr++ = *in_ptr++;
-            *out_ptr++ = *in_ptr++;
-            *out_ptr++ = *in_ptr++;
-            *out_ptr++ = 255;
+    in_ptr = in.data;
+    if (grey > 1) {
+        for (y = 0; y < in.height; y++) {
+            for (x = 0; x < in.width; x++) {
+                *out_ptr++ = *in_ptr;
+                *out_ptr++ = *in_ptr;
+                *out_ptr++ = *in_ptr++;
+                *out_ptr++ = *in_ptr++;
+            }
+        }
+    } else if (grey) {
+        for (y = 0; y < in.height; y++) {
+            for (x = 0; x < in.width; x++) {
+                *out_ptr++ = *in_ptr;
+                *out_ptr++ = *in_ptr;
+                *out_ptr++ = *in_ptr++;
+                *out_ptr++ = 255;
+            }
+        }
+    } else if (output_pixels != in.data) {
+        for (y = 0; y < in.height; y++) {
+            for (x = 0; x < in.width; x++) {
+                *out_ptr++ = *in_ptr++;
+                *out_ptr++ = *in_ptr++;
+                *out_ptr++ = *in_ptr++;
+                *out_ptr++ = 255;
+            }
         }
     }
 
-    result = Tcl_NewByteArrayObj(output_pixels, length);
+    if (objc == 2) {
+        set_result_dict(interp, pkg_data, output_pixels, length, in.width, in.height, 4);
+    } else {
+        result = Tcl_NewByteArrayObj(output_pixels, length);
+        Tcl_SetObjResult(interp, result);
+    }
 
-    Tcl_SetObjResult(interp, result);
-    ckfree(output_pixels);
+    if (output_pixels != in.data) {
+        ckfree(output_pixels);
+    }
+
+    return TCL_OK;
+}
+
+
+static int tcl_stb_rgb2grey(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    PkgData *pkg_data = (PkgData *) cd;
+    int length = 0, x = 0, y = 0, grey = 0;
+    unsigned char *output_pixels = NULL, *in_ptr, *out_ptr;
+    ImgInfo in;
+    Tcl_Obj *result;
+    int with_alpha = 0;
+
+    if (objc == 2) {
+        if (get_img_info(interp, pkg_data, objv[1], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        goto process;
+    }
+
+    if (objc != 4) {
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdict|data ?width height?");
+        return TCL_ERROR;
+    }
+
+    in.data = Tcl_GetByteArrayFromObj(objv[1], &in.length);
+    if (in.data == NULL || in.length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &in.width) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[3], &in.height) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    with_alpha = 1;
+
+process:
+    if (in.length == in.width * in.height) {
+        grey = 1;
+    } else if (in.length == in.width * in.height * 2) {
+        grey = 2;
+        with_alpha = 1;
+    } else if (in.length == in.width * in.height * 4) {
+        /* RGBA */
+        with_alpha = 2;
+    } else if (in.length != in.width * in.height * 3) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    length = in.width * in.height * (with_alpha ? 2 : 1);
+    if (length == in.length) {
+        output_pixels = in.data;
+    } else {
+        output_pixels = (unsigned char *) attemptckalloc(length);
+    }
+    if (output_pixels == NULL) {
+        Tcl_SetResult(interp, "out of memory", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    out_ptr = output_pixels;
+    in_ptr = in.data;
+    if (grey > 1) {
+        if (output_pixels != in.data) {
+            for (y = 0; y < in.height; y++) {
+                for (x = 0; x < in.width; x++) {
+                    *out_ptr++ = *in_ptr;
+                    *out_ptr++ = *in_ptr;
+                }
+            }
+        }
+    } else if (grey) {
+        if (output_pixels != in.data) {
+            for (y = 0; y < in.height; y++) {
+                for (x = 0; x < in.width; x++) {
+                    *out_ptr++ = *in_ptr;
+                    if (with_alpha) {
+                        *out_ptr++ = 255;
+                    }
+                }
+            }
+        }
+    } else if (output_pixels != in.data) {
+        for (y = 0; y < in.height; y++) {
+            for (x = 0; x < in.width; x++) {
+                int pixval;
+
+                pixval  = 19518 * (*in_ptr++);
+                pixval += 38319 * (*in_ptr++);
+                pixval +=  7442 * (*in_ptr++);
+                pixval = pixval >> 16;
+                if (pixval > 255) {
+                    pixval = 255;
+                }
+                *out_ptr++ = pixval;
+                if (with_alpha > 1) {
+                    *out_ptr++ = *in_ptr++;
+                } else if (with_alpha) {
+                    *out_ptr++ = 255;
+                }
+            }
+        }
+    }
+
+    if (objc == 2) {
+        set_result_dict(interp, pkg_data, output_pixels, length, in.width, in.height, with_alpha ? 2 : 1);
+    } else {
+        result = Tcl_NewByteArrayObj(output_pixels, length);
+        Tcl_SetObjResult(interp, result);
+    }
+
+    if (output_pixels != in.data) {
+        ckfree(output_pixels);
+    }
 
     return TCL_OK;
 }
@@ -1240,7 +1405,11 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, "::" NS "::rgb2rgba",
         (Tcl_ObjCmdProc *) tcl_stb_rgb2rgba,
-        (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
+    Tcl_CreateObjCommand(interp, "::" NS "::rgb2grey",
+        (Tcl_ObjCmdProc *) tcl_stb_rgb2grey,
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
 
     Tcl_CreateObjCommand(interp, "::" NS "::write",
         (Tcl_ObjCmdProc *) tcl_stb_write,
