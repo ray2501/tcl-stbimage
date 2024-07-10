@@ -852,6 +852,316 @@ get_angle:
     return TCL_OK;
 }
 
+/* see https://github.com/b-sullender/blend-pixels */
+
+static inline void blend(unsigned char *dst, unsigned char *src, int rgb, int alpha) {
+    double r1, g1, b1, a1, r2, g2, b2, a2;
+    double alpha1, alpha2, rem, t1, t2, t3, t4;
+
+    alpha1 = alpha / 255.0;
+    r1 = dst[0] / 255.0;
+    if (rgb) {
+        b1 = dst[1] / 255.0;
+        g1 = dst[2] / 255.0;
+        a1 = dst[3] / 255.0;
+    } else {
+        a1 = dst[1] / 255.0;
+    }
+    r2 = src[0] / 255.0;
+    if (rgb) {
+        b2 = src[1] / 255.0;
+        g2 = src[2] / 255.0;
+        a2 = src[3] / 255.0;
+    } else {
+        a2 = src[1] / 255.0;
+    }
+    alpha2 = alpha1 / 1.0;
+    alpha2 *= a2;
+    rem = 1.0 - alpha2;
+    t3 = rem;
+    t4 = alpha2;
+    rem *= a1;
+    rem /= 1.0;
+    alpha2 += (t3 - rem);
+    t1 = r1 * rem;
+    t2 = r2 * alpha2;
+    r1 = round(((t1 + t2) / 1.0) * 255.0);
+    if (r1 < 0.0) {
+        dst[0] = 0;
+    } else if (r1 > 255.0) {
+        dst[0] = 255;
+    } else {
+        dst[0] = r1;
+    }
+    if (rgb) {
+        t1 = b1 * rem;
+        t2 = b2 * alpha2;
+        b1 = round(((t1 + t2) / 1.0) * 255.0);
+        if (b1 < 0.0) {
+            dst[1] = 0;
+        } else if (b1 > 255.0) {
+            dst[1] = 255;
+        } else {
+            dst[1] = b1;
+        }
+        t1 = g1 * rem;
+        t2 = g2 * alpha2;
+        g1 = round(((t1 + t2) / 1.0) * 255.0);
+        if (g1 < 0.0) {
+            dst[2] = 0;
+        } else if (g1 > 255.0) {
+            dst[2] = 255;
+        } else {
+            dst[2] = g1;
+        }
+    }
+    a1 = round(((a1 + t4 * (1.0 - a1) / 1.0)) * 255.0);
+    if (a1 < 0.0) {
+        alpha = 0;
+    } else if (a1 > 255.0) {
+        alpha = 255;
+    } else {
+        alpha = a1;
+    }
+    if (rgb) {
+        dst[3] = alpha;
+    } else {
+        dst[1] = alpha;
+    }
+}
+
+
+static int put(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    PkgData *pkg_data = (PkgData *) cd;
+    int x, y, xs, ys, pixval, alpha = 255, dst_x, dst_y, dst_w = 0, dst_h = 0, length, i, need;
+    unsigned char *output_pixels = NULL, *src_ptr, *dst_ptr, src_buf[4], dst_buf[4];
+    ImgInfo dst, src;
+
+    if (objc < 5) {
+wrong_args:
+        return TCL_ERROR;
+    }
+
+    i = 1;
+    need = 10;
+    if (objv[1]->typePtr == pkg_data->dict_type) {
+        if (get_img_info(interp, pkg_data, objv[1], &dst) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        need -= 4;
+        i = 2;
+    }
+
+    if (need < 10 && objv[2]->typePtr == pkg_data->dict_type) {
+        if (get_img_info(interp, pkg_data, objv[2], &src) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        need -= 4;
+        i = 3;
+    }
+
+    if (objc < need) {
+        goto wrong_args;
+    }
+
+    if (i == 1) {
+        dst.data = Tcl_GetByteArrayFromObj(objv[1], &dst.length);
+        if (dst.data == NULL || dst.length < 1) {
+            Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        if (Tcl_GetIntFromObj(interp, objv[2], &dst.width) != TCL_OK) {
+            return TCL_ERROR;
+        }
+
+        if (Tcl_GetIntFromObj(interp, objv[3], &dst.height) != TCL_OK) {
+            return TCL_ERROR;
+        }
+
+        if (Tcl_GetIntFromObj(interp, objv[4], &dst.channels) != TCL_OK) {
+            return TCL_ERROR;
+        }
+
+        length = dst.width * dst.height * dst.channels;
+        if (length <= 0 || length > dst.length || dst.channels > 4) {
+            Tcl_SetResult(interp, "invalid dst image size", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        i = 5;
+    }
+
+    if (i != 3) {
+        src.data = Tcl_GetByteArrayFromObj(objv[i], &src.length);
+        if (src.data == NULL || src.length < 1) {
+            Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        if (Tcl_GetIntFromObj(interp, objv[i+1], &src.width) != TCL_OK) {
+            return TCL_ERROR;
+        }
+
+        if (Tcl_GetIntFromObj(interp, objv[i+2], &src.height) != TCL_OK) {
+            return TCL_ERROR;
+        }
+
+        if (Tcl_GetIntFromObj(interp, objv[i+3], &src.channels) != TCL_OK) {
+            return TCL_ERROR;
+        }
+
+        length = src.width * src.height * src.channels;
+        if (length <= 0 || length > src.length || src.channels > 4) {
+            Tcl_SetResult(interp, "invalid src image size", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        i += 4;
+    }
+
+    if (objc < i + 2) {
+        goto wrong_args;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[i], &dst_x) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[i+1], &dst_y) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    i += 2;
+
+    if (objc >= i + 1) {
+        if (Tcl_GetIntFromObj(interp, objv[i], &alpha) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        ++i;
+    }
+
+    if (objc >= i + 1) {
+        if (Tcl_GetIntFromObj(interp, objv[i], &dst_w) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        ++i;
+    }
+
+    if (objc >= i + 1) {
+        if (Tcl_GetIntFromObj(interp, objv[i], &dst_h) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        ++i;
+    }
+
+    if (objc > i) {
+        goto wrong_args;
+    }
+
+    length = dst.width * dst.height * dst.channels;
+    output_pixels = (unsigned char *) attemptckalloc(length);
+    if (output_pixels == NULL) {
+        Tcl_SetResult(interp, "out of memory", TCL_STATIC);
+        return TCL_ERROR;
+    }
+    memcpy(output_pixels, dst.data, length);
+
+    if (dst_w <= 0) {
+        dst_w = src.width;
+    }
+    if (dst_w + dst_x > dst.width) {
+        dst_w = dst.width - dst_x;
+    }
+
+    if (dst_h <= 0) {
+        dst_h = src.height;
+    }
+    if (dst_h + dst_y > dst.height) {
+        dst_h = dst.height - dst_y;
+    }
+
+    if (dst_w + dst_x < 0 || dst_x > dst.width ||
+        dst_h + dst_y < 0 || dst_y > dst.height) {
+        goto done;
+    }
+
+    y = dst_y;
+    ys = 0;
+    if (y < 0) {
+        ys = -y;
+        ys = ys % src.height;
+        y = 0;
+    }
+    dst_ptr = output_pixels + y * dst.width * dst.channels;
+    dst_w = dst_w * dst.channels;
+    while (y < dst_h) {
+        x = dst_x;
+        xs = 0;
+        if (x < 0) {
+            xs = -x;
+            xs = xs % src.width;
+            x = 0;
+        }
+        x = x * dst.channels;
+        while (x < dst_w) {
+            src_ptr = src.data + (ys * src.width + xs) * src.channels;
+            memcpy(src_buf, src_ptr, src.channels);
+            if (src.channels == 1) {
+                src_buf[1] = 255;
+            } else if (src.channels == 3) {
+                src_buf[3] = 255;
+            }
+            if (src.channels == 1 && dst.channels > 2) {
+                src_buf[3] = 255;
+                src_buf[1] = src_buf[0];
+                src_buf[2] = src_buf[0];
+            } else if (src.channels == 2 && dst.channels > 2) {
+                src_buf[3] = src_buf[1];
+                src_buf[1] = src_buf[0];
+                src_buf[2] = src_buf[0];
+            } else if (src.channels > 2 && dst.channels < 3) {
+                pixval  = 19518 * src_buf[0];
+                pixval += 38319 * src_buf[1];
+                pixval +=  7442 * src_buf[2];
+                pixval = pixval >> 16;
+                if (pixval > 255) {
+                    pixval = 255;
+                }
+                src_buf[0] = pixval;
+                if (src.channels < 4) {
+                    src_buf[1] = 255;
+                } else {
+                    src_buf[1] = src_buf[3];
+                }
+            }
+            memcpy(dst_buf, dst_ptr + x, dst.channels);
+            if (dst.channels == 1) {
+                dst_buf[1] = 255;
+            } else if (dst.channels == 3) {
+                dst_buf[3] = 255;
+            }
+            blend(dst_buf, src_buf, dst.channels > 2, alpha);
+            memcpy(dst_ptr + x, dst_buf, dst.channels);
+            if (++xs >= src.width) {
+                xs = 0;
+            }
+            x += dst.channels;
+        }
+        if (++ys >= src.height) {
+            ys = 0;
+        }
+        dst_ptr += dst.width * dst.channels;
+        ++y;
+    }
+
+done:
+    set_result_dict(interp, pkg_data, output_pixels, length, dst.width, dst.height, dst.channels);
+    ckfree(output_pixels);
+
+    return TCL_OK;
+}
+
 
 static void pkg_cleanup(void *cd, Tcl_Interp *interp) {
     PkgData *pkg_data = (PkgData *) cd;
@@ -950,6 +1260,10 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, "::" NS "::rotate",
         (Tcl_ObjCmdProc *) rotate,
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
+    Tcl_CreateObjCommand(interp, "::" NS "::put",
+        (Tcl_ObjCmdProc *) put,
         (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
 
     Tcl_CallWhenDeleted(interp, pkg_cleanup, (ClientData) pkg_data);

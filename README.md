@@ -24,6 +24,8 @@ Implement commands
 ::stbimage::mirror inputdict flipx flipy  
 ::stbimage::rotate inputdata width height channels angle  
 ::stbimage::rotate inputdict angle  
+::stbimage::put dstdata dstwidth dstheight dstchannels srcdata srcwidth srcheight srcchannels dstcolumn dstrow ?alpha width height?  
+::stbimage::put dstdict srcdict dstcolumn dstrow ?alpha width height?  
 
 `::stbimage::rgb2rgba` is a help command, try to convert RGB image to RGBA
 image.
@@ -39,6 +41,13 @@ X and/or Y axis.
 
 The `rotate` function returns a new image which is rotated by 0, 90, 180,
 or 270 degrees (counter clock-wise).
+
+The `put` function returns a new image which is the source image
+blended over the destination image with blend factor `alpha`. The
+target position in destination is given by `dstcolumn` and `dstrow`.
+If `width` and `height` are given they specify the region in
+the destination image. The source image is tiled accordingly to
+this region.
 
 
 UNIX BUILD
