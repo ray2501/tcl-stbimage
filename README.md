@@ -17,12 +17,28 @@ Implement commands
 ::stbimage::write format filename width height channels data  
 ::stbimage::rgb2rgba data width height  
 ::stbimage::ascii_art inputdata srcwidth srcheight dstwitdh dstheight channels ?indentstring?  
+::stbimage::ascii_art inputdict dstwitdh dstheight ?indentstring?  
+::stbimage::crop inputdata srcwidth srcheight startcolumn startrow dstwitdh dstheight channels  
+::stbimage::crop inputdict startcolumn startrow dstwitdh dstheight  
+::stbimage::mirror inputdata width height channels flipx flipy  
+::stbimage::mirror inputdict flipx flipy  
+::stbimage::rotate inputdata width height channels angle  
+::stbimage::rotate inputdict angle  
 
 `::stbimage::rgb2rgba` is a help command, try to convert RGB image to RGBA
 image.
 
 `format` value should be -
 jpg, png, tga, bmp
+
+An `inputdict` must contain the items `width`, `height`, `channels`,
+and `data`, where the latter is a bytearray with pixel data.
+
+The `mirror` function returns a new image which is flipped around the
+X and/or Y axis.
+
+The `rotate` function returns a new image which is rotated by 0, 90, 180,
+or 270 degrees (counter clock-wise).
 
 
 UNIX BUILD

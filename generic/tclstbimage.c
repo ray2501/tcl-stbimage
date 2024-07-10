@@ -39,6 +39,76 @@ extern DLLEXPORT int	Stbimage_Init(Tcl_Interp * interp);
 }
 #endif
 
+typedef struct {
+    int tk_checked;
+    Tcl_Obj *width_obj;
+    Tcl_Obj *height_obj;
+    Tcl_Obj *channels_obj;
+    Tcl_Obj *data_obj;
+    const Tcl_ObjType *dict_type;
+} PkgData;
+
+
+typedef struct {
+    unsigned char *data;
+    int length;
+    int width;
+    int height;
+    int channels;
+} ImgInfo;
+
+
+static void set_result_dict(Tcl_Interp *interp, PkgData *pkg_data, unsigned char *pixels, int length, int width, int height, int channels) {
+    Tcl_Obj *result = Tcl_NewDictObj();
+
+    Tcl_DictObjPut(interp, result, pkg_data->width_obj, Tcl_NewIntObj(width));
+    Tcl_DictObjPut(interp, result, pkg_data->height_obj, Tcl_NewIntObj(height));
+    Tcl_DictObjPut(interp, result, pkg_data->channels_obj, Tcl_NewIntObj(channels));
+    Tcl_DictObjPut(interp, result, pkg_data->data_obj, Tcl_NewByteArrayObj(pixels, length));
+
+    Tcl_SetObjResult(interp, result);
+}
+
+
+static int get_img_info(Tcl_Interp *interp, PkgData *pkg_data, Tcl_Obj *obj, ImgInfo *info) {
+    Tcl_Obj *elem;
+
+    if (Tcl_DictObjGet(interp, obj, pkg_data->data_obj, &elem) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    info->data = Tcl_GetByteArrayFromObj(elem, &info->length);
+    if (info->data == NULL || info->length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (Tcl_DictObjGet(interp, obj, pkg_data->width_obj, &elem) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    if (Tcl_GetIntFromObj(interp, elem, &info->width) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_DictObjGet(interp, obj, pkg_data->height_obj, &elem) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    if (Tcl_GetIntFromObj(interp, elem, &info->height) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_DictObjGet(interp, obj, pkg_data->channels_obj, &elem) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    if (Tcl_GetIntFromObj(interp, elem, &info->channels) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (info->length != info->channels * info->width * info->height) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+    return TCL_OK;
+}
 
 static int tcl_stb_load(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
     char *filename = NULL;
@@ -323,64 +393,82 @@ static int tcl_stb_write(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const
 
 
 static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
-    int in_w = 0, in_h = 0, out_w = 0, out_h = 0, num_channels = 0;
-    int x, y, pixval, reverse = 0;
-    unsigned char *input_pixels = NULL, *output_pixels = NULL;
-    int len = 0;
-    int length = 0, indent_length = 0;
+    PkgData *pkg_data = (PkgData *) cd;
+    int i, x, y, pixval, reverse = 0, out_width = 0, out_height = 0;
+    unsigned char *output_pixels = NULL;
     unsigned char *res = NULL;
+    int length = 0, indent_length = 0;
     const char *indent_string = NULL;
+    ImgInfo in;
     Tcl_DString ds;
 
+    if (objc == 4 || objc == 5) {
+        if (get_img_info(interp, pkg_data, objv[1], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        if (objc > 4) {
+            indent_string = Tcl_GetStringFromObj(objv[4], &indent_length);
+        }
+        i = 2;
+        goto get_dest;
+    }
+
     if (objc < 7 || objc > 8) {
-        Tcl_WrongNumArgs(interp, 1, objv, "inputdata srcwidth srcheight dstwitdh dstheight num_channels ?indent_string?");
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdict|inputdata ?srcwidth srcheight? dstwidth dstheight ?channels? ?indent_string?");
         return TCL_ERROR;
     }
 
-    input_pixels = Tcl_GetByteArrayFromObj(objv[1], &len);
-    if (input_pixels == NULL || len < 1) {
-        Tcl_SetResult(interp, "invalid byte array", TCL_STATIC);
+    in.data = Tcl_GetByteArrayFromObj(objv[1], &in.length);
+    if (in.data == NULL || in.length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[2], &in_w) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[2], &in.width) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[3], &in_h) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[3], &in.height) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[4], &out_w) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[6], &in.channels) != TCL_OK) {
         return TCL_ERROR;
     }
-
-    if (Tcl_GetIntFromObj(interp, objv[5], &out_h) != TCL_OK) {
-        return TCL_ERROR;
-    }
-
-    if (Tcl_GetIntFromObj(interp, objv[6], &num_channels) != TCL_OK) {
-        return TCL_ERROR;
-    }
-    if (num_channels < 0) {
-        num_channels = -num_channels;
+    if (in.channels < 0) {
+        in.channels = -in.channels;
         reverse = 1;
     }
 
     if (objc > 7) {
         indent_string = Tcl_GetStringFromObj(objv[7], &indent_length);
     }
+    i = 4;
 
-    length = out_w * out_h * num_channels;
+get_dest:
+    if (Tcl_GetIntFromObj(interp, objv[i], &out_width) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[i+1], &out_height) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (in.length <= 0 || in.length > in.width * in.height * in.channels) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    length = out_width * out_height * in.channels;
     output_pixels = (unsigned char *) attemptckalloc(length);
     if (output_pixels == NULL) {
         Tcl_SetResult(interp, "out of memory", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    res = stbir_resize_uint8_linear(input_pixels , in_w , in_h , 0,
-                       output_pixels, out_w, out_h, 0,
-                       (stbir_pixel_layout) num_channels);
+    res = stbir_resize_uint8_linear(in.data, in.width, in.height, 0,
+                                    output_pixels, out_width, out_height, 0,
+                                    (stbir_pixel_layout) in.channels);
 
     if (res == NULL) {
         ckfree(output_pixels);
@@ -389,29 +477,29 @@ static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *ob
     }
 
     Tcl_DStringInit(&ds);
-    for (y = 0; y < out_h; y++) {
-        if (indent_string != NULL) {
+    for (y = 0; y < out_height; y++) {
+        if (indent_string != NULL && indent_length) {
             Tcl_DStringAppend(&ds, indent_string, indent_length);
         }
-        for (x = 0; x < out_w; x++) {
+        for (x = 0; x < out_width; x++) {
             char ch;
 
-            if (num_channels == 1) {
-                pixval = output_pixels[y * out_w + x];
-            } else if (num_channels == 2) {
-                pixval = output_pixels[(y * out_w + x) * 2];
-            } else if (num_channels == 3) {
-                pixval  = 19518 * output_pixels[(y * out_w + x) * 3 + 0];
-                pixval += 38319 * output_pixels[(y * out_w + x) * 3 + 1];
-                pixval +=  7442 * output_pixels[(y * out_w + x) * 3 + 2];
+            if (in.channels == 1) {
+                pixval = output_pixels[y * out_width + x];
+            } else if (in.channels == 2) {
+                pixval = output_pixels[(y * out_width + x) * 2];
+            } else if (in.channels == 3) {
+                pixval  = 19518 * output_pixels[(y * out_width + x) * 3 + 0];
+                pixval += 38319 * output_pixels[(y * out_width + x) * 3 + 1];
+                pixval +=  7442 * output_pixels[(y * out_width + x) * 3 + 2];
                 pixval = pixval >> 16;
                 if (pixval > 255) {
                     pixval = 255;
                 }
-            } else if (num_channels == 4) {
-                pixval  = 19518 * output_pixels[(y * out_w + x) * 4 + 0];
-                pixval += 38319 * output_pixels[(y * out_w + x) * 4 + 1];
-                pixval +=  7442 * output_pixels[(y * out_w + x) * 4 + 2];
+            } else if (in.channels == 4) {
+                pixval  = 19518 * output_pixels[(y * out_width + x) * 4 + 0];
+                pixval += 38319 * output_pixels[(y * out_width + x) * 4 + 1];
+                pixval +=  7442 * output_pixels[(y * out_width + x) * 4 + 2];
                 pixval = pixval >> 16;
                 if (pixval > 255) {
                     pixval = 255;
@@ -454,6 +542,327 @@ static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *ob
 }
 
 
+static int crop(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    PkgData *pkg_data = (PkgData *) cd;
+    int x = 0, y = 0, out_width = 0, out_height = 0, length = 0, i;
+    unsigned char *output_pixels = NULL;
+    ImgInfo in;
+
+    if (objc == 6) {
+        if (get_img_info(interp, pkg_data, objv[1], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        i = 2;
+        goto get_dest;
+    }
+
+    if (objc != 9) {
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdict|inputdata ?srcwidth srcheight? startcolumn startrow dstwidth dstheight ?channels?");
+        return TCL_ERROR;
+    }
+
+    in.data = Tcl_GetByteArrayFromObj(objv[1], &in.length);
+    if (in.data == NULL || in.length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &in.width) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[3], &in.height) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[8], &in.channels) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    i = 4;
+
+get_dest:
+    if (Tcl_GetIntFromObj(interp, objv[i], &x) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[i+1], &y) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[i+2], &out_width) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[i+3], &out_height) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    length = in.width * in.height * in.channels;
+    if (length <= 0 || length > in.length) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (x + out_width > in.width || y + out_height > in.height || x < 0 || y < 0 || out_width > in.width || out_height > in.height) {
+        Tcl_SetResult(interp, "invalid crop region", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    length = out_width * out_height * in.channels;
+    output_pixels = (unsigned char *) attemptckalloc(length);
+    if (output_pixels == NULL) {
+        Tcl_SetResult(interp, "out of memory", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    for (i = 0; i < out_height; i++) {
+        unsigned char *src, *dst;
+
+        src = in.data + (y + i) * in.width * in.channels + x * in.channels;
+        dst = output_pixels + i * out_width * in.channels;
+        memcpy(dst, src, out_width * in.channels);
+    }
+
+    set_result_dict(interp, pkg_data, output_pixels, length, out_width, out_height, in.channels);
+    ckfree(output_pixels);
+
+    return TCL_OK;
+}
+
+
+static int mirror(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    PkgData *pkg_data = (PkgData *) cd;
+    int x, y, flipx, flipy, length, i;
+    unsigned char *output_pixels = NULL;
+    ImgInfo in;
+
+    if (objc == 4) {
+        if (get_img_info(interp, pkg_data, objv[1], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        i = 2;
+        goto get_flags;
+    }
+
+    if (objc != 7) {
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdict|inputdata ?width height channels? flipx flipy");
+        return TCL_ERROR;
+    }
+
+    in.data = Tcl_GetByteArrayFromObj(objv[1], &in.length);
+    if (in.data == NULL || in.length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &in.width) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[3], &in.height) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[4], &in.channels) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    i = 5;
+
+get_flags:
+    if (Tcl_GetBooleanFromObj(interp, objv[i], &flipx) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetBooleanFromObj(interp, objv[i+1], &flipy) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    length = in.width * in.height * in.channels;
+    if (length <= 0 || length > in.length) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (flipx || flipy) {
+        output_pixels = (unsigned char *) attemptckalloc(length);
+        if (output_pixels == NULL) {
+            Tcl_SetResult(interp, "out of memory", TCL_STATIC);
+            return TCL_ERROR;
+        }
+    } else {
+        output_pixels = in.data;
+    }
+
+    if (flipy) {
+        for (y = 0; y < in.height; y++) {
+            unsigned char *src = in.data + y * in.width * in.channels;
+            unsigned char *dst;
+
+            if (flipx) {
+                dst = output_pixels + (in.height - 1 - y) * in.width * in.channels;
+            } else {
+                dst = output_pixels + y * in.width * in.channels;
+            }
+            src += (in.width - 1) * in.channels;
+            for (x = 0; x < in.width; x++) {
+                if (in.channels > 1) {
+                    memcpy(dst, src, in.channels);
+                    dst += in.channels;
+                    src -= in.channels;
+                } else {
+                    *dst++ = *src--;
+                }
+            }
+        }
+    } else if (flipx) {
+        for (y = 0; y < in.height; y++) {
+            memcpy(output_pixels + (in.height - 1 - y) * in.width * in.channels, in.data + y * in.width * in.channels, in.width * in.channels);
+        }
+    }
+
+    set_result_dict(interp, pkg_data, output_pixels, length, in.width, in.height, in.channels);
+    if (output_pixels != in.data) {
+        ckfree(output_pixels);
+    }
+
+    return TCL_OK;
+}
+
+
+static int rotate(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    PkgData *pkg_data = (PkgData *) cd;
+    int x, y, angle, length, i;
+    unsigned char *output_pixels = NULL;
+    ImgInfo in;
+
+    if (objc == 3) {
+        if (get_img_info(interp, pkg_data, objv[1], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        i = 2;
+        goto get_angle;
+    }
+
+    if (objc != 6) {
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdict|inputdata ?width height channels? angle");
+        return TCL_ERROR;
+    }
+
+    in.data = Tcl_GetByteArrayFromObj(objv[1], &in.length);
+    if (in.data == NULL || in.length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &in.width) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[3], &in.height) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[4], &in.channels) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    i = 5;
+
+get_angle:
+    if (Tcl_GetIntFromObj(interp, objv[i], &angle) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    length = in.width * in.height * in.channels;
+    if (length <= 0 || length > in.length) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    angle = angle % 360;
+    if (angle < 0) {
+        angle = 360 + angle;
+    }
+
+    if (angle >= 45 && angle < 270 + 45) {
+        output_pixels = (unsigned char *) attemptckalloc(length);
+        if (output_pixels == NULL) {
+            Tcl_SetResult(interp, "out of memory", TCL_STATIC);
+            return TCL_ERROR;
+        }
+    } else {
+        output_pixels = in.data;
+    }
+
+    if (angle >= 45 && angle < 90 + 45) {
+        for (y = 0; y < in.height; y++) {
+            unsigned char *src = in.data + y * in.width * in.channels;
+            unsigned char *dst;
+
+            for (x = 0; x < in.width; x++) {
+                dst = output_pixels + (in.width - 1 - x) * in.height * in.channels;
+                dst += y * in.channels;
+                memcpy(dst, src, in.channels);
+                src += in.channels;
+            }
+        }
+        i = in.width;
+        in.width = in.height;
+        in.height = i;
+    } else if (angle < 180 + 45) {
+        for (y = 0; y < in.height; y++) {
+            unsigned char *src = in.data + y * in.width * in.channels;
+            unsigned char *dst = output_pixels + (in.height - 1 - y) * in.width * in.channels;
+
+            src += (in.width - 1) * in.channels;
+            for (x = 0; x < in.width; x++) {
+                if (in.channels > 1) {
+                    memcpy(dst, src, in.channels);
+                    dst += in.channels;
+                    src -= in.channels;
+                } else {
+                    *dst++ = *src--;
+                }
+            }
+        }
+    } else if (angle < 270 + 45) {
+        for (y = 0; y < in.height; y++) {
+            unsigned char *src = in.data + y * in.width * in.channels;
+            unsigned char *dst;
+
+            for (x = 0; x < in.width; x++) {
+                dst = output_pixels + x * in.height * in.channels;
+                dst += (in.height - 1 - y) * in.channels;
+                memcpy(dst, src, in.channels);
+                src += in.channels;
+            }
+        }
+        i = in.width;
+        in.width = in.height;
+        in.height = i;
+    }
+
+    set_result_dict(interp, pkg_data, output_pixels, length, in.width, in.height, in.channels);
+    if (output_pixels != in.data) {
+        ckfree(output_pixels);
+    }
+
+    return TCL_OK;
+}
+
+
+static void pkg_cleanup(void *cd, Tcl_Interp *interp) {
+    PkgData *pkg_data = (PkgData *) cd;
+
+    Tcl_DecrRefCount(pkg_data->width_obj);
+    Tcl_DecrRefCount(pkg_data->height_obj);
+    Tcl_DecrRefCount(pkg_data->channels_obj);
+    Tcl_DecrRefCount(pkg_data->data_obj);
+    ckfree(pkg_data);
+}
+
 
 /*
  *----------------------------------------------------------------------
@@ -478,18 +887,34 @@ DLLEXPORT int
 Stbimage_Init(Tcl_Interp *interp)
 {
     Tcl_Namespace *nsPtr; /* pointer to hold our own new namespace */
+    PkgData *pkg_data;
 
     if (Tcl_InitStubs(interp, "8.6", 0) == NULL) {
-	return TCL_ERROR;
+        return TCL_ERROR;
     }
     if (Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION) != TCL_OK) {
-	return TCL_ERROR;
+        return TCL_ERROR;
     }
 
     nsPtr = Tcl_CreateNamespace(interp, NS, NULL, NULL);
     if (nsPtr == NULL) {
         return TCL_ERROR;
     }
+
+    pkg_data = (PkgData *) ckalloc(sizeof(PkgData));
+    pkg_data->tk_checked = 0;
+
+    pkg_data->width_obj = Tcl_NewStringObj("width", -1);
+    pkg_data->height_obj = Tcl_NewStringObj("height", -1);
+    pkg_data->channels_obj = Tcl_NewStringObj("channels", -1);
+    pkg_data->data_obj = Tcl_NewStringObj("data", -1);
+    pkg_data->dict_type = Tcl_GetObjType("dict");
+
+    Tcl_IncrRefCount(pkg_data->width_obj);
+    Tcl_IncrRefCount(pkg_data->height_obj);
+    Tcl_IncrRefCount(pkg_data->channels_obj);
+    Tcl_IncrRefCount(pkg_data->data_obj);
+
 
     Tcl_CreateObjCommand(interp, "::" NS "::load",
         (Tcl_ObjCmdProc *) tcl_stb_load,
@@ -513,7 +938,21 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, "::" NS "::ascii_art",
         (Tcl_ObjCmdProc *) ascii_art,
-        (ClientData)NULL, (Tcl_CmdDeleteProc *) NULL);
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
+    Tcl_CreateObjCommand(interp, "::" NS "::crop",
+        (Tcl_ObjCmdProc *) crop,
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
+    Tcl_CreateObjCommand(interp, "::" NS "::mirror",
+        (Tcl_ObjCmdProc *) mirror,
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
+    Tcl_CreateObjCommand(interp, "::" NS "::rotate",
+        (Tcl_ObjCmdProc *) rotate,
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
+    Tcl_CallWhenDeleted(interp, pkg_cleanup, (ClientData) pkg_data);
 
     return TCL_OK;
 }
