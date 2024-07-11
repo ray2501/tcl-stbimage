@@ -94,4 +94,15 @@ Example
 	::stbimage::write png test2.png $neww $newh $channels $newdata
 	::stbimage::write tga test2.tga $neww $newh $channels $newdata
 	::stbimage::write bmp test2.bmp $neww $newh $channels $newdata
+	
+	# flip along X
+	set d3 [::stbimage::mirror $d2 1 0]
+	
+	# rotate by 90 deg
+	set d4 [::stbimage::rotate $d2 90]
+	
+	# tint with pink
+	set pink [dict create data [binary decode hex FFBFBF] \
+		width 1 height 1 channels 3]
+	set d5 [::stbimage::put $d2 $pink 0 0 64 $neww $newh]
 
