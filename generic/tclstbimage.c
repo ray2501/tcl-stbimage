@@ -1104,6 +1104,7 @@ static int put(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
 
     if (objc < 5) {
 wrong_args:
+        Tcl_WrongNumArgs(interp, 1, objv, "put dstdict|dstdata ?dstwidth dstheight dstchannels? srcdict|srcdata ?srcwidth srcheight srcchannels? dstcolumn dstrow ?alpha width height?");
         return TCL_ERROR;
     }
 
