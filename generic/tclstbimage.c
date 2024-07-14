@@ -214,54 +214,70 @@ static int tcl_stb_load_from_memory(void *cd, Tcl_Interp *interp, int objc, Tcl_
 
 
 static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
-    int in_w = 0, in_h = 0, out_w = 0, out_h = 0, num_channels = 0;
-    unsigned char *input_pixels = NULL, *output_pixels = NULL;
-    int len = 0;
-    int length = 0;
+    PkgData *pkg_data = (PkgData *) cd;
+    int i, out_width = 0, out_height = 0;
+    unsigned char *output_pixels = NULL;
     unsigned char *res = NULL;
-    Tcl_Obj *result;
+    int length = 0;
+    ImgInfo in;
+
+    if (objc == 4) {
+        if (get_img_info(interp, pkg_data, objv[1], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        i = 2;
+        goto get_dest;
+    }
 
     if (objc != 7) {
-        Tcl_WrongNumArgs(interp, 1, objv, "inputdata srcwidth srcheight dstwitdh dstheight num_channels");
+        Tcl_WrongNumArgs(interp, 1, objv, "inputdict|inputdata ?srcwidth srcheight? dstwidth dstheight ?channels?");
         return TCL_ERROR;
     }
 
-    input_pixels = Tcl_GetByteArrayFromObj(objv[1], &len);
-    if (input_pixels == NULL || len < 1) {
-        Tcl_SetResult(interp, "invalid byte array", TCL_STATIC);
+    in.data = Tcl_GetByteArrayFromObj(objv[1], &in.length);
+    if (in.data == NULL || in.length < 1) {
+        Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[2], &in_w) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[2], &in.width) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[3], &in_h) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[3], &in.height) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[4], &out_w) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[6], &in.channels) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    i = 4;
+
+get_dest:
+    if (Tcl_GetIntFromObj(interp, objv[i], &out_width) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[5], &out_h) != TCL_OK) {
+    if (Tcl_GetIntFromObj(interp, objv[i+1], &out_height) != TCL_OK) {
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[6], &num_channels) != TCL_OK) {
+    length = in.width * in.height * in.channels;
+    if (length <= 0 || length > in.length) {
+        Tcl_SetResult(interp, "invalid image size", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    length = out_w * out_h * num_channels;
+    length = out_width * out_height * in.channels;
     output_pixels = (unsigned char *) attemptckalloc(length);
     if (output_pixels == NULL) {
         Tcl_SetResult(interp, "out of memory", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    res = stbir_resize_uint8_linear(input_pixels , in_w , in_h , 0,
-                       output_pixels, out_w, out_h, 0,
-                       (stbir_pixel_layout) num_channels);
+    res = stbir_resize_uint8_linear(in.data, in.width, in.height, 0,
+                                    output_pixels, out_width, out_height, 0,
+                                    (stbir_pixel_layout) in.channels);
 
     if (res == NULL) {
         ckfree(output_pixels);
@@ -269,13 +285,7 @@ static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * cons
         return TCL_ERROR;
     }
 
-    result = Tcl_NewDictObj();
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("width", -1), Tcl_NewIntObj(out_w));
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("height", -1), Tcl_NewIntObj(out_h));
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("channels", -1), Tcl_NewIntObj(num_channels));
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("data", -1), Tcl_NewByteArrayObj(output_pixels, length));
-
-    Tcl_SetObjResult(interp, result);
+    set_result_dict(interp, pkg_data, output_pixels, length, out_width, out_height, in.channels);
     ckfree(output_pixels);
 
     return TCL_OK;
@@ -1449,7 +1459,7 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, "::" NS "::resize",
         (Tcl_ObjCmdProc *) tcl_stb_resize,
-        (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
 
     Tcl_CreateObjCommand(interp, "::" NS "::rgb2rgba",
         (Tcl_ObjCmdProc *) tcl_stb_rgb2rgba,

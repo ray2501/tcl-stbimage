@@ -13,7 +13,8 @@ Implement commands
 
 ::stbimage::load filename   
 ::stbimage::load_from_memory filedata   
-::stbimage::resize inputdata srcwidth srcheight dstwitdh dstheight num_channels  
+::stbimage::resize inputdata srcwidth srcheight dstwitdh dstheight channels  
+::stbimage::resize inputdict dstwitdh dstheight  
 ::stbimage::write format filename width height channels data  
 ::stbimage::write format filename inputdict  
 ::stbimage::rgb2rgba inputdata width height  
