@@ -6,22 +6,37 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wunused-function"
+#endif
 #define STBI_MALLOC attemptckalloc
 #define STBI_REALLOC attemptckrealloc
 #define STBI_FREE ckfree
+#ifdef _WIN32
 #define STBI_WINDOWS_UTF8
+#endif
+#define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STBIR_MALLOC(size, c) attemptckalloc(size)
 #define STBIR_FREE(ptr, c) ckfree(ptr)
+#define STB_IMAGE_RESIZE_STATIC
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "stb_image_resize2.h"
 #define STBIW_MALLOC attemptckalloc
 #define STBIW_REALLOC attemptckrealloc
 #define STBIW_FREE ckfree
+#ifdef _WIN32
 #define STBIW_WINDOWS_UTF8
+#endif
+#define STB_IMAGE_WRITE_STATIC
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 
 #define NS "stbimage"
 
@@ -489,68 +504,100 @@ process:
 
 
 static int tcl_stb_write(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
-    char *format = NULL;
-    char *filename = NULL;
-    int len = 0, w = 0, h = 0, channels_in_file = 0, length = 0, result = 0;
-    unsigned char *data = NULL;
-#ifndef _WIN32
+    PkgData *pkg_data = (PkgData *) cd;
+    char *format = NULL, *filename, *filename2;
+    int flen, result = 0;
+    ImgInfo in;
     Tcl_DString ds;
+#ifndef _WIN32
+    Tcl_DString ds2;
 #endif
 
-    if (objc != 7) {
-        Tcl_WrongNumArgs(interp, 1, objv, "format filename width height channels data");
+    if (objc == 4 && objv[3]->typePtr == pkg_data->dict_type) {
+        format = Tcl_GetStringFromObj(objv[1], &flen);
+        if (flen < 1) {
+            Tcl_SetResult(interp, "invalid format", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        filename = Tcl_GetStringFromObj(objv[2], &flen);
+        if (flen < 1) {
+            Tcl_SetResult(interp, "invalid filename", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        if (get_img_info(interp, pkg_data, objv[3], &in) != TCL_OK){
+            return TCL_ERROR;
+        }
+        goto process;
+    }
+
+    if (objc != 4 && objc != 7) {
+        Tcl_WrongNumArgs(interp, 1, objv, "format filename inputdict|width ?height channels data?");
         return TCL_ERROR;
     }
 
-    format = Tcl_GetStringFromObj(objv[1], &len);
-    if (!format || len < 1) {
+    format = Tcl_GetStringFromObj(objv[1], &flen);
+    if (flen < 1) {
         Tcl_SetResult(interp, "invalid format", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    len = 0;
-    filename = Tcl_GetStringFromObj(objv[2], &len);
-    if (!filename || len < 1) {
+    filename = Tcl_GetStringFromObj(objv[2], &flen);
+    if (flen < 1) {
         Tcl_SetResult(interp, "invalid filename", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    if (Tcl_GetIntFromObj(interp, objv[3], &w) != TCL_OK) {
-        return TCL_ERROR;
-    }
-    if (Tcl_GetIntFromObj(interp, objv[4], &h) != TCL_OK) {
-        return TCL_ERROR;
-    }
-    if (Tcl_GetIntFromObj(interp, objv[5], &channels_in_file) != TCL_OK) {
-        return TCL_ERROR;
-    }
-    data = Tcl_GetByteArrayFromObj(objv[6], &length);
-    if (data == NULL || length < 1) {
-        Tcl_SetResult(interp, "invalid byte array", TCL_STATIC);
-        return TCL_ERROR;
+    if (objc == 7) {
+        if (Tcl_GetIntFromObj(interp, objv[3], &in.width) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        if (Tcl_GetIntFromObj(interp, objv[4], &in.height) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        if (Tcl_GetIntFromObj(interp, objv[5], &in.channels) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        in.data = Tcl_GetByteArrayFromObj(objv[6], &in.length);
+        if (in.data == NULL || in.length < in.width * in.height * in.channels) {
+            Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+            return TCL_ERROR;
+        }
     }
 
+process:
+    filename2 = Tcl_TranslateFileName(interp, filename, &ds);
+    if (filename2 == NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_DStringInit(&ds);
+    } else {
+        filename = filename2;
+        flen = Tcl_DStringLength(&ds);
+    }
 #ifndef _WIN32
-    filename = Tcl_UtfToExternalDString(NULL, filename, len, &ds);
+    filename = Tcl_UtfToExternalDString(NULL, filename, flen, &ds2);
 #endif
     if (strcmp(format, "png") == 0) {
-        result = stbi_write_png(filename, w, h, channels_in_file, data, 0);
+        result = stbi_write_png(filename, in.width, in.height, in.channels, in.data, 0);
     } else if (strcmp(format, "jpg") == 0) {
-        result = stbi_write_jpg(filename, w, h, channels_in_file, data, 90);
+        result = stbi_write_jpg(filename, in.width, in.height, in.channels, in.data, 90);
     } else if (strcmp(format, "tga") == 0) {
-        result = stbi_write_tga(filename, w, h, channels_in_file, data);
+        result = stbi_write_tga(filename, in.width, in.height, in.channels, in.data);
     } else if (strcmp(format, "bmp") == 0) {
-        result = stbi_write_bmp(filename, w, h, channels_in_file, data);
+        result = stbi_write_bmp(filename, in.width, in.height, in.channels, in.data);
     } else {
 #ifndef _WIN32
-        Tcl_DStringFree(&ds);
+        Tcl_DStringFree(&ds2);
 #endif
+        Tcl_DStringFree(&ds);
         Tcl_SetResult(interp, "unsupported output format", TCL_STATIC);
         return TCL_ERROR;
     }
 #ifndef _WIN32
-    Tcl_DStringFree(&ds);
+    Tcl_DStringFree(&ds2);
 #endif
+    Tcl_DStringFree(&ds);
     Tcl_SetObjResult(interp, Tcl_NewIntObj(result));
 
     return TCL_OK;
@@ -1414,7 +1461,7 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, "::" NS "::write",
         (Tcl_ObjCmdProc *) tcl_stb_write,
-        (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
 
     Tcl_CreateObjCommand(interp, "::" NS "::ascii_art",
         (Tcl_ObjCmdProc *) ascii_art,
