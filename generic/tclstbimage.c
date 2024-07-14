@@ -125,13 +125,15 @@ static int get_img_info(Tcl_Interp *interp, PkgData *pkg_data, Tcl_Obj *obj, Img
     return TCL_OK;
 }
 
+
 static int tcl_stb_load(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
-    char *filename = NULL;
-    int length = 0, len = 0, w = 0, h = 0, channels_in_file = 0;
+    PkgData *pkg_data = (PkgData *) cd;
+    char *filename, *filename2;
+    int length = 0, flen, width = 0, height = 0, channels = 0;
     unsigned char *data = NULL;
-    Tcl_Obj *result;
-#ifndef _WIN32
     Tcl_DString ds;
+#ifndef _WIN32
+    Tcl_DString ds2;
 #endif
 
     if (objc != 2) {
@@ -139,39 +141,42 @@ static int tcl_stb_load(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const 
         return TCL_ERROR;
     }
 
-    filename = Tcl_GetStringFromObj(objv[1], &len);
-    if (!filename || len < 1) {
+    filename = Tcl_GetStringFromObj(objv[1], &flen);
+    if (flen < 1) {
         Tcl_SetResult(interp, "invalid filename", TCL_STATIC);
         return TCL_ERROR;
     }
 
+    filename2 = Tcl_TranslateFileName(interp, filename, &ds);
+    if (filename2 == NULL) {
+        Tcl_ResetResult(interp);
+        Tcl_DStringInit(&ds);
+    } else {
+        filename = filename2;
+        flen = Tcl_DStringLength(&ds);
+    }
 #ifndef _WIN32
-    filename = Tcl_UtfToExternalDString(NULL, filename, len, &ds);
+    filename = Tcl_UtfToExternalDString(NULL, filename, flen, &ds2);
 #endif
-    data = stbi_load(filename, &w, &h, &channels_in_file, 0);
+    data = stbi_load(filename, &width, &height, &channels, 0);
 #ifndef _WIN32
+    Tcl_DStringFree(&ds2);
+#endif
     Tcl_DStringFree(&ds);
-#endif
     if (data == NULL) {
         Tcl_SetResult(interp, "load file failed", TCL_STATIC);
         return TCL_ERROR;
     }
 
-    if (channels_in_file < 1 || channels_in_file > 4) {
-        stbi_image_free(data);
-        Tcl_SetResult(interp, "incompatible pixel format", TCL_STATIC);
-        return TCL_ERROR;
+    if (channels < 1 || channels > 4) {
+       stbi_image_free(data);
+       Tcl_SetResult(interp, "incompatible pixel format", TCL_STATIC);
+       return TCL_ERROR;
     }
 
+    length = width * height * channels;
+    set_result_dict(interp, pkg_data, data, length, width, height, channels);
 
-    length = w * h * channels_in_file;
-    result = Tcl_NewDictObj();
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("width", -1), Tcl_NewIntObj(w));
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("height", -1), Tcl_NewIntObj(h));
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("channels", -1), Tcl_NewIntObj(channels_in_file));
-    Tcl_DictObjPut(interp, result, Tcl_NewStringObj("data", -1), Tcl_NewByteArrayObj(data, length));
-
-    Tcl_SetObjResult(interp, result);
     stbi_image_free(data);
     return TCL_OK;
 }
@@ -1451,7 +1456,7 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, "::" NS "::load",
         (Tcl_ObjCmdProc *) tcl_stb_load,
-        (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
 
     Tcl_CreateObjCommand(interp, "::" NS "::load_from_memory",
         (Tcl_ObjCmdProc *) tcl_stb_load_from_memory,
