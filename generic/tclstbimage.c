@@ -213,6 +213,60 @@ static int tcl_stb_load_from_memory(void *cd, Tcl_Interp *interp, int objc, Tcl_
 }
 
 
+static int readfunc(void *context, char *data, int size) {
+    return Tcl_Read((Tcl_Channel) context, data, size);
+}
+
+
+static void skipfunc(void *context, int skip) {
+    Tcl_Seek((Tcl_Channel) context, (Tcl_WideInt) skip, SEEK_CUR);
+}
+
+
+static int eoffunc(void *context) {
+    return Tcl_Eof((Tcl_Channel) context);
+}
+
+
+static int tcl_stb_load_from_chan(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    PkgData *pkg_data = (PkgData *) cd;
+    Tcl_Channel chan = NULL;
+    int width = 0, height = 0, channels = 0, length = 0, mode;
+    unsigned char *data = NULL;
+    stbi_io_callbacks iocb;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "chan");
+        return TCL_ERROR;
+    }
+
+    chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), &mode);
+    if (chan == NULL) {
+        return TCL_ERROR;
+    }
+    if (!(mode & TCL_READABLE)) {
+        Tcl_SetResult(interp, "channel not readable", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    iocb.read = readfunc;
+    iocb.skip = skipfunc;
+    iocb.eof = eoffunc;
+
+    data = stbi_load_from_callbacks(&iocb, chan, &width, &height, &channels, 0);
+    if (data == NULL) {
+        Tcl_SetResult(interp, "load file failed", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    length = width * height * channels;
+    set_result_dict(interp, pkg_data, data, length, width, height, channels);
+
+    stbi_image_free(data);
+    return TCL_OK;
+}
+
+
 static int tcl_stb_resize(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
     PkgData *pkg_data = (PkgData *) cd;
     int i, out_width = 0, out_height = 0;
@@ -608,6 +662,96 @@ process:
     Tcl_DStringFree(&ds2);
 #endif
     Tcl_DStringFree(&ds);
+    Tcl_SetObjResult(interp, Tcl_NewIntObj(result));
+
+    return TCL_OK;
+}
+
+
+static void wrfunc(void *context, void *data, int size) {
+    Tcl_Write((Tcl_Channel) context, (char *) data, size);
+}
+
+
+static int tcl_stb_write_to_chan(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
+    PkgData *pkg_data = (PkgData *) cd;
+    char *format = NULL;
+    Tcl_Channel chan = NULL;
+    int length = 0, mode, result;
+    ImgInfo in;
+
+    if (objc == 4 && objv[3]->typePtr == pkg_data->dict_type) {
+        format = Tcl_GetStringFromObj(objv[1], &length);
+        if (length < 1) {
+            Tcl_SetResult(interp, "invalid format", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        chan = Tcl_GetChannel(interp, Tcl_GetString(objv[2]), &mode);
+        if (chan == NULL) {
+            return TCL_ERROR;
+        }
+        if (!(mode & TCL_WRITABLE)) {
+            Tcl_SetResult(interp, "channel not writable", TCL_STATIC);
+            return TCL_ERROR;
+        }
+
+        if (get_img_info(interp, pkg_data, objv[3], &in) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        goto process;
+    }
+
+    if (objc != 4 && objc != 7) {
+        Tcl_WrongNumArgs(interp, 1, objv, "format channel inputdict|width ?height channels data?");
+        return TCL_ERROR;
+    }
+
+    format = Tcl_GetStringFromObj(objv[1], &length);
+    if (length < 1) {
+        Tcl_SetResult(interp, "invalid format", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    chan = Tcl_GetChannel(interp, Tcl_GetString(objv[2]), &mode);
+    if (chan == NULL) {
+        return TCL_ERROR;
+    }
+    if (!(mode & TCL_WRITABLE)) {
+        Tcl_SetResult(interp, "channel not writable", TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    if (objc == 7) {
+        if (Tcl_GetIntFromObj(interp, objv[3], &in.width) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        if (Tcl_GetIntFromObj(interp, objv[4], &in.height) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        if (Tcl_GetIntFromObj(interp, objv[5], &in.channels) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        in.data = Tcl_GetByteArrayFromObj(objv[6], &in.length);
+        if (in.data == NULL || in.length < in.width * in.height * in.channels) {
+            Tcl_SetResult(interp, "invalid bytearray", TCL_STATIC);
+            return TCL_ERROR;
+        }
+    }
+
+process:
+    if (strcmp(format, "png") == 0) {
+        result = stbi_write_png_to_func(wrfunc, chan, in.width, in.height, in.channels, in.data, 0);
+    } else if (strcmp(format, "jpg") == 0) {
+        result = stbi_write_jpg_to_func(wrfunc, chan, in.width, in.height, in.channels, in.data, 90);
+    } else if (strcmp(format, "tga") == 0) {
+        result = stbi_write_tga_to_func(wrfunc, chan, in.width, in.height, in.channels, in.data);
+    } else if (strcmp(format, "bmp") == 0) {
+        result = stbi_write_bmp_to_func(wrfunc, chan, in.width, in.height, in.channels, in.data);
+    } else {
+        Tcl_SetResult(interp, "unsupported output format", TCL_STATIC);
+        return TCL_ERROR;
+    }
     Tcl_SetObjResult(interp, Tcl_NewIntObj(result));
 
     return TCL_OK;
@@ -1457,6 +1601,10 @@ Stbimage_Init(Tcl_Interp *interp)
         (Tcl_ObjCmdProc *) tcl_stb_load_from_memory,
         (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
 
+    Tcl_CreateObjCommand(interp, "::" NS "::load_from_chan",
+        (Tcl_ObjCmdProc *) tcl_stb_load_from_chan,
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
     Tcl_CreateObjCommand(interp, "::" NS "::resize",
         (Tcl_ObjCmdProc *) tcl_stb_resize,
         (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
@@ -1471,6 +1619,10 @@ Stbimage_Init(Tcl_Interp *interp)
 
     Tcl_CreateObjCommand(interp, "::" NS "::write",
         (Tcl_ObjCmdProc *) tcl_stb_write,
+        (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
+
+    Tcl_CreateObjCommand(interp, "::" NS "::write_to_chan",
+        (Tcl_ObjCmdProc *) tcl_stb_write_to_chan,
         (ClientData) pkg_data, (Tcl_CmdDeleteProc *) NULL);
 
     Tcl_CreateObjCommand(interp, "::" NS "::ascii_art",
