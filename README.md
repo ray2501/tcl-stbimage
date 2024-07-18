@@ -19,7 +19,7 @@ Implement commands
 ::stbimage::write format filename width height channels data  
 ::stbimage::write format filename inputdict  
 ::stbimage::write_to_chan format chan width height channels data  
-::stbimage::write to_chan format chan inputdict  
+::stbimage::write_to_chan format chan inputdict  
 ::stbimage::rgb2rgba inputdata width height  
 ::stbimage::rgb2rgba inputdict  
 ::stbimage::rgb2grey inputdata width height  
