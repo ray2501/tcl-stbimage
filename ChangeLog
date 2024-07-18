@@ -1,3 +1,13 @@
+2024-07-18  Danilo Chang
+
+	* Bump version to v1.1
+	* Merge code from AndroWish project
+
+2024-07-17  Danilo Chang
+
+	* Merge code from AndroWish project
+	* Update stb_image_resize2.h
+
 2024-07-10  Danilo Chang
 
 	* Added functions (crop, mirror, rotate, put) from AndroWish project
