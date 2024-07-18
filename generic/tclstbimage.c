@@ -1564,6 +1564,8 @@ DLLEXPORT int
 Stbimage_Init(Tcl_Interp *interp)
 {
     Tcl_Namespace *nsPtr; /* pointer to hold our own new namespace */
+    Tcl_Command cmd;
+    Tcl_Obj *subcmds;
     PkgData *pkg_data;
 
     if (Tcl_InitStubs(interp, "8.6", 0) == NULL) {
@@ -1592,6 +1594,22 @@ Stbimage_Init(Tcl_Interp *interp)
     Tcl_IncrRefCount(pkg_data->channels_obj);
     Tcl_IncrRefCount(pkg_data->data_obj);
 
+    subcmds = Tcl_NewListObj(11, NULL);
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("load", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("load_from_memory", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("load_from_chan", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("resize", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("rgb2rgba", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("rgb2grey", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("write", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("write_to_chan", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("ascii_art", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("crop", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("mirror", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("rotate", -1));
+    Tcl_ListObjAppendElement(NULL, subcmds, Tcl_NewStringObj("put", -1));
+    cmd = Tcl_CreateEnsemble(interp, "::" NS, nsPtr, TCL_ENSEMBLE_PREFIX);
+    Tcl_SetEnsembleSubcommandList(interp, cmd, subcmds);
 
     Tcl_CreateObjCommand(interp, "::" NS "::load",
         (Tcl_ObjCmdProc *) tcl_stb_load,
