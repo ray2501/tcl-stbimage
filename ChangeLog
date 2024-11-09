@@ -1,5 +1,6 @@
 2024-11-09  Danilo Chang
 
+	* Use Tcl_Size to replace int (for Tcl 9)
 	* Update stb_image_resize2.h
 
 2024-08-30  Danilo Chang

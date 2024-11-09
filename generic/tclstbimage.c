@@ -66,7 +66,7 @@ typedef struct {
 
 typedef struct {
     unsigned char *data;
-    int length;
+    Tcl_Size length;
     int width;
     int height;
     int channels;
@@ -129,7 +129,8 @@ static int get_img_info(Tcl_Interp *interp, PkgData *pkg_data, Tcl_Obj *obj, Img
 static int tcl_stb_load(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
     PkgData *pkg_data = (PkgData *) cd;
     char *filename, *filename2;
-    int length = 0, flen, width = 0, height = 0, channels = 0;
+    Tcl_Size flen;
+    int length = 0, width = 0, height = 0, channels = 0;
     unsigned char *data = NULL;
     Tcl_DString ds;
 #ifndef _WIN32
@@ -185,7 +186,8 @@ static int tcl_stb_load(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const 
 static int tcl_stb_load_from_memory(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
     PkgData *pkg_data = (PkgData *) cd;
     unsigned char *input_data = NULL;
-    int ilen, width = 0, height = 0, channels = 0, length = 0;
+    Tcl_Size ilen;
+    int width = 0, height = 0, channels = 0, length = 0;
     unsigned char *data = NULL;
 
     if (objc != 2) {
@@ -570,7 +572,8 @@ process:
 static int tcl_stb_write(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *objv) {
     PkgData *pkg_data = (PkgData *) cd;
     char *format = NULL, *filename, *filename2;
-    int flen, result = 0;
+    Tcl_Size flen;
+    int result = 0;
     ImgInfo in;
     Tcl_DString ds;
 #ifndef _WIN32
@@ -677,7 +680,8 @@ static int tcl_stb_write_to_chan(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj
     PkgData *pkg_data = (PkgData *) cd;
     char *format = NULL;
     Tcl_Channel chan = NULL;
-    int length = 0, mode, result;
+    Tcl_Size length = 0;
+    int mode, result;
     ImgInfo in;
 
     if (objc == 4 && objv[3]->typePtr == pkg_data->dict_type) {
@@ -763,7 +767,8 @@ static int ascii_art(void *cd, Tcl_Interp *interp, int objc, Tcl_Obj * const *ob
     int i, x, y, pixval, reverse = 0, out_width = 0, out_height = 0;
     unsigned char *output_pixels = NULL;
     unsigned char *res = NULL;
-    int length = 0, indent_length = 0;
+    int length = 0;
+    Tcl_Size indent_length = 0;
     const char *indent_string = NULL;
     ImgInfo in;
     Tcl_DString ds;
@@ -1568,7 +1573,7 @@ Stbimage_Init(Tcl_Interp *interp)
     Tcl_Obj *subcmds;
     PkgData *pkg_data;
 
-    if (Tcl_InitStubs(interp, "8.6", 0) == NULL) {
+    if (Tcl_InitStubs(interp, TCL_VERSION, 0) == NULL) {
         return TCL_ERROR;
     }
     if (Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION) != TCL_OK) {
