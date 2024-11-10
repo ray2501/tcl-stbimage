@@ -1580,7 +1580,7 @@ Stbimage_Init(Tcl_Interp *interp)
         return TCL_ERROR;
     }
 
-    nsPtr = Tcl_CreateNamespace(interp, NS, NULL, NULL);
+    nsPtr = Tcl_CreateNamespace(interp, "::" NS, NULL, NULL);
     if (nsPtr == NULL) {
         return TCL_ERROR;
     }
