@@ -1,3 +1,7 @@
+2025-01-31  Danilo Chang
+
+	* Bump version to v1.3
+
 2024-11-09  Danilo Chang
 
 	* Use Tcl_Size to replace int (for Tcl 9)
